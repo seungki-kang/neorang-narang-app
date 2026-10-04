@@ -1,0 +1,133 @@
+part of '../main.dart';
+
+QuestionItem _finishedQuestion(
+  String id,
+  String subject,
+  String topicSubject,
+) {
+  final String innerTopic = topicSubject.startsWith('이 ')
+      ? '내 안에 있는 ${topicSubject.substring(2)}'
+      : '내 안에 있는 $topicSubject';
+  return QuestionItem(
+    id: 'nno.finished.$id',
+    questionTemplate: '{answerer}의 무엇이 십자가에서 다 끝났습니까?',
+    answerLines: [
+      '내 안에 있는 $subject입니다.',
+      '$topicSubject 100% 내 안에 있습니다.',
+      '$innerTopic 십자가에서 다 끝났습니다.',
+    ],
+  );
+}
+
+final List<QuestionItem> chapter1Questions = [
+  _finishedQuestion('shame', '수치심', '이 수치심은'),
+  _finishedQuestion('fear', '두려움', '이 두려움은'),
+  _finishedQuestion('guilt', '죄책감', '이 죄책감은'),
+  _finishedQuestion('self_righteousness', '나의 의', '나의 의는'),
+  _finishedQuestion('approval_desire', '인정받고 싶은 욕구', '인정받고 싶은 욕구는'),
+  _finishedQuestion('past_wounds', '과거의 상처', '이 과거의 상처는'),
+  _finishedQuestion('fear_of_death', '죽음의 공포', '이 죽음의 공포는'),
+  _finishedQuestion('pride', '교만', '이 교만은'),
+  _finishedQuestion('jealousy', '시기심', '이 시기심은'),
+  _finishedQuestion('greed', '탐욕', '이 탐욕은'),
+  _finishedQuestion('gluttony', '탐식', '이 탐식은'),
+  _finishedQuestion('anger', '분노', '이 분노는'),
+  _finishedQuestion('lust', '정욕', '이 정욕은'),
+  _finishedQuestion('laziness', '나태함', '이 나태함은'),
+  _finishedQuestion('falsehood', '거짓', '이 거짓은'),
+  _finishedQuestion('evil_heart', '악한 마음', '이 악한 마음은'),
+  _finishedQuestion('resentment', '억울함', '이 억울함은'),
+  _finishedQuestion('stereotype', '고정관념', '이 고정관념은'),
+  _finishedQuestion('comparison', '비교하는 마음', '이 비교하는 마음은'),
+  _finishedQuestion('low_self_esteem', '낮은 자존감', '이 낮은 자존감은'),
+  _finishedQuestion('inferiority', '열등감', '이 열등감은'),
+  _finishedQuestion('depression', '우울함', '이 우울함은'),
+  _finishedQuestion('stubbornness', '고집', '이 고집은'),
+  _finishedQuestion('temper', '혈기', '이 혈기는'),
+  _finishedQuestion('helplessness', '무기력함', '이 무기력함은'),
+  _finishedQuestion('frustration', '좌절감', '이 좌절감은'),
+  _finishedQuestion('despair', '절망', '이 절망은'),
+  _finishedQuestion('pain', '아픔', '이 아픔은'),
+  _finishedQuestion('hatred', '미움', '이 미움은'),
+  _finishedQuestion('dissatisfaction', '불만', '이 불만은'),
+  _finishedQuestion('oppression', '짓눌림', '이 짓눌림은'),
+  _finishedQuestion('sorrow', '서러움', '이 서러움은'),
+  _finishedQuestion('sadness', '슬픔', '이 슬픔은'),
+  _finishedQuestion('obsession', '집착', '이 집착은'),
+  _finishedQuestion('belief', '신념', '이 신념은'),
+  _finishedQuestion('prejudice', '편견', '이 편견은'),
+  _finishedQuestion('preconception', '선입견', '이 선입견은'),
+  _finishedQuestion('idolatry', '우상숭배', '이 우상숭배는'),
+  _finishedQuestion('physical_disease', '육체의 질병', '이 육체의 질병은'),
+  _finishedQuestion('suffering', '고통', '이 고통은'),
+  _finishedQuestion('death', '사망', '이 사망은'),
+  _finishedQuestion('curse', '저주', '이 저주는'),
+  _finishedQuestion('poverty', '가난', '이 가난은'),
+  _finishedQuestion('old_self', '옛사람', '이 옛사람은'),
+  const QuestionItem(
+    id: 'nno.finished.everything',
+    questionTemplate: '{answerer}의 무엇이 십자가에서 다 끝났습니까?',
+    answerLines: ['나의 모든 것이 십자가에서 다 끝났습니다.'],
+  ),
+];
+
+QuestionItem _accomplishedQuestion(
+  String id,
+  String followUp,
+  String answer,
+) {
+  return QuestionItem(
+    id: 'nno.accomplished.$id',
+    questionTemplate:
+        '십자가와 부활은 {answerer}의 모든 것을 다 이루었습니다.\n$followUp',
+    answerLines: [answer],
+  );
+}
+
+final List<QuestionItem> chapter2Questions = [
+  _accomplishedQuestion('restored_relationship', '이제 {answerer_topic} 누구입니까?', '나는 하나님과의 관계가 완전하게 회복된 사람입니다.'),
+  _accomplishedQuestion('freedom_in_truth', '이제 {answerer_topic} 어떤 상태입니까?', '나는 진리 안에서 자유합니다.'),
+  _accomplishedQuestion('liberated', '이제 {answerer_topic} 누구입니까?', '나는 죄의 종, 마귀의 종으로부터 완전하게 해방된 사람입니다.'),
+  _accomplishedQuestion('source_of_blessing', '이제 {answerer_topic} 누구입니까?', '나는 복의 근원입니다.'),
+  _accomplishedQuestion('overflowing_cup', '이제 {answerer_topic} 어떤 상태입니까?', '나는 내 잔이 넘칩니다.'),
+  _accomplishedQuestion('needs_supplied', '이제 {answerer_topic} 어떤 상태입니까?', '나의 모든 쓸 것을 주님께서 채우셨습니다.'),
+  _accomplishedQuestion('spirit_intercedes', '{answerer_topic} 무엇을 깨달았습니까?', '성령께서 말할 수 없는 탄식으로 나를 위하여 친히 간구하십니다.'),
+  _accomplishedQuestion('kingdom_within', '이제 {answerer_topic} 어떤 상태입니까?', '내 안에 하나님 나라가 다 이루어졌습니다.'),
+  _accomplishedQuestion('new_life', '이제 {answerer_topic} 누구입니까?', '나는 부활과 연합된 완전한 새 생명입니다.'),
+  _accomplishedQuestion('temple_of_spirit', '이제 {answerer_topic} 누구입니까?', '나는 성령의 전입니다.'),
+  _accomplishedQuestion('body_of_christ', '이제 {answerer_topic} 누구입니까?', '나는 교회의 머리이신 예수 그리스도의 지체입니다.'),
+  _accomplishedQuestion('glory_of_god', '이제 {answerer_topic} 누구입니까?', '나는 하나님의 영광입니다.'),
+  _accomplishedQuestion('heir_of_life', '이제 {answerer_topic} 누구입니까?', '나는 생명의 상속자입니다.'),
+  _accomplishedQuestion('kingdom_people', '이제 {answerer_topic} 누구입니까?', '나는 하나님 나라의 백성입니다.'),
+  _accomplishedQuestion('child_of_god', '이제 {answerer_topic} 누구입니까?', '나는 하나님의 자녀입니다.'),
+  _accomplishedQuestion('saved_person', '이제 {answerer_topic} 누구입니까?', '나는 구원받은 사람입니다.'),
+  _accomplishedQuestion('born_again', '이제 {answerer_topic} 어떤 상태입니까?', '나는 물과 성령으로 거듭났습니다.'),
+  _accomplishedQuestion('chosen_people', '이제 {answerer_topic} 누구입니까?', '나는 택함 받은 백성입니다.'),
+  _accomplishedQuestion('royal_priest', '이제 {answerer_topic} 누구입니까?', '나는 왕 같은 제사장입니다.'),
+  _accomplishedQuestion('fruit_of_spirit', '이제 {answerer_topic} 누구입니까?', '나는 성령의 9가지 열매가 다 맺힌 사람입니다.'),
+  _accomplishedQuestion('love', '이제 {answerer_topic} 누구입니까?', '나는 하나님의 사랑입니다.'),
+  _accomplishedQuestion('joy', '이제 {answerer_topic} 누구입니까?', '나는 기쁨(희락)입니다.'),
+  _accomplishedQuestion('peace', '이제 {answerer_topic} 누구입니까?', '나는 화평입니다.'),
+  _accomplishedQuestion('patience', '이제 {answerer_topic} 누구입니까?', '나는 인내입니다.'),
+  _accomplishedQuestion('kindness', '이제 {answerer_topic} 누구입니까?', '나는 자비입니다.'),
+  _accomplishedQuestion('goodness', '이제 {answerer_topic} 누구입니까?', '나는 양선입니다.'),
+  _accomplishedQuestion('faithfulness', '이제 {answerer_topic} 누구입니까?', '나는 충성입니다.'),
+  _accomplishedQuestion('gentleness', '이제 {answerer_topic} 누구입니까?', '나는 온유입니다.'),
+  _accomplishedQuestion('self_control', '이제 {answerer_topic} 누구입니까?', '나는 절제입니다.'),
+  _accomplishedQuestion('intimacy_with_spirit', '이제 {answerer_topic} 어떤 상태입니까?', '성령 하나님과 친밀합니다.'),
+  _accomplishedQuestion('eternal_life', '이제 {answerer_topic} 누구입니까?', '나는 영생을 얻은 자입니다.'),
+  _accomplishedQuestion('covenant_people', '이제 {answerer_topic} 누구입니까?', '나는 언약된 백성입니다.'),
+  _accomplishedQuestion('thankful', '이제 {answerer_topic} 누구입니까?', '나는 범사에 감사하는 사람입니다.'),
+  _accomplishedQuestion('gods_will', '이제 {answerer_topic} 누구입니까?', '나로 말미암아 하나님의 뜻이 이루어지는 사람입니다.'),
+  _accomplishedQuestion('answered_prayer', '이제 {answerer_topic} 누구입니까?', '나는 기도하여 응답받는 사람입니다.'),
+  _accomplishedQuestion('worshiper', '이제 {answerer_topic} 누구입니까?', '나는 예배자입니다.'),
+  _accomplishedQuestion('reconciler', '이제 {answerer_topic} 누구입니까?', '나는 모든 것과 화해하는 화해자입니다.'),
+  _accomplishedQuestion('forgiving', '이제 {answerer_topic} 어떤 상태입니까?', '나는 용서하는 사람입니다.'),
+  _accomplishedQuestion('sees_old_self_with_love', '이제 {answerer_topic} 누구입니까?', '나는 다른 사람의 ‘옛사람’을 하나님의 사랑과 긍휼로 바라보는 사람입니다.'),
+  _accomplishedQuestion('nonviolent', '이제 {answerer_topic} 누구입니까?', '나는 비폭력, 무저항하는 사람입니다.'),
+  _accomplishedQuestion('jesus_life', '이제 {answerer_topic} 누구입니까?', '나는 예수생명입니다.'),
+  _accomplishedQuestion('little_jesus', '이제 {answerer_topic} 누구입니까?', '나는 작은 예수입니다.'),
+  _accomplishedQuestion('resurrection_witness', '이제 {answerer_topic} 누구입니까?', '나는 부활 증인입니다.'),
+  _accomplishedQuestion('disciple', '이제 {answerer_topic} 누구입니까?', '나는 제자입니다.'),
+  _accomplishedQuestion('confession', '이제 {answerer_topic} 무엇을 고백합니까?', '십자가와 부활은 나의 모든 것을 다 이루었습니다.'),
+];
