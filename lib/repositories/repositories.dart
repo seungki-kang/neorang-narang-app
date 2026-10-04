@@ -1,5 +1,5 @@
 part of '../main.dart';
 
-final CompletionRepository completionRepository = CompletionRepository();
-final QuestionDraftRepository questionDraftRepository =
+final CompletionStore completionRepository = CompletionRepository();
+final QuestionDraftStore questionDraftRepository =
     QuestionDraftRepository();

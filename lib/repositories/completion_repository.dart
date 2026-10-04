@@ -1,8 +1,9 @@
 part of '../main.dart';
 
-class CompletionRepository {
+class CompletionRepository implements CompletionStore {
   static const String _storageKey = 'neorang_narang_completion_records_v1';
 
+  @override
   Future<List<CompletionRecord>> loadAll() async {
     final SharedPreferences preferences =
         await SharedPreferences.getInstance();
@@ -23,6 +24,7 @@ class CompletionRepository {
     }
   }
 
+  @override
   Future<void> add(CompletionRecord record) async {
     final SharedPreferences preferences =
         await SharedPreferences.getInstance();
@@ -35,6 +37,7 @@ class CompletionRepository {
     );
   }
 
+  @override
   Future<int> countForCourse(int courseNumber) async {
     final List<CompletionRecord> records = await loadAll();
     return records
@@ -42,6 +45,7 @@ class CompletionRepository {
         .length;
   }
 
+  @override
   Future<List<CompletionRecord>> pendingGraceRecords() async {
     final List<CompletionRecord> records = await loadAll();
     return records
@@ -50,6 +54,7 @@ class CompletionRepository {
       ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
   }
 
+  @override
   Future<void> saveGraceReflection(String recordId, String reflection) async {
     final SharedPreferences preferences =
         await SharedPreferences.getInstance();
