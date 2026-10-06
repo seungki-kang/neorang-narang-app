@@ -36,20 +36,35 @@ class _QuestionPageState extends State<QuestionPage> {
   late String myDisplayName;
   late String partnerDisplayName;
 
-  @override
+   @override
   void initState() {
     super.initState();
+
+    // 문답 화면이 열려 있는 동안 화면이 꺼지지 않도록 합니다.
+    WakelockPlus.enable();
+
     currentQuestionIndex = widget.initialQuestionIndex;
     myDisplayName = makeAddress(widget.myName, widget.myHonorific);
     partnerDisplayName =
         makeAddress(widget.partnerName, widget.partnerHonorific);
+
     questions = widget.courseNumber == 1
         ? List<QuestionItem>.of(chapter1Questions)
         : List<QuestionItem>.of(chapter2Questions);
-    if (currentQuestionIndex < 0 || currentQuestionIndex >= questions.length) {
+
+    if (currentQuestionIndex < 0 ||
+        currentQuestionIndex >= questions.length) {
       currentQuestionIndex = 0;
     }
+
     saveDraft();
+  }
+
+  @override
+  void dispose() {
+    // 문답 화면을 나가면 화면 꺼짐 방지를 해제합니다.
+    WakelockPlus.disable();
+    super.dispose();
   }
 
   Future<void> saveDraft() async {
