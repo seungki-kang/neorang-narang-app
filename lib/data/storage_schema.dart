@@ -6,10 +6,13 @@ part of '../main.dart';
 /// 향후 데이터 마이그레이션과 버전 상승이 쉬워집니다.
 abstract final class StorageSchema {
   static const String databaseName = 'neorang_narang.db';
-  static const int databaseVersion = 1;
+  static const int databaseVersion = 2;
 
   static const String completionTable = 'completion_records';
   static const String draftTable = 'question_drafts';
+
+  static const recoveryTable = 'completion_recoveries';
+  static const deletedTable = 'deleted_completion_ids';
 
   static const String activeDraftId = 'active_question_draft';
 }

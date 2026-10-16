@@ -43,8 +43,7 @@ class _CompletionSignaturePageState extends State<CompletionSignaturePage> {
     partnerSignedAt = pendingRecord?.partnerSignedAt;
   }
 
-  bool get isTogether =>
-      widget.participationMode == ParticipationMode.together;
+  bool get isTogether => widget.participationMode == ParticipationMode.together;
 
   bool get allSigned =>
       mySignedAt != null && (!isTogether || partnerSignedAt != null);
@@ -55,7 +54,8 @@ class _CompletionSignaturePageState extends State<CompletionSignaturePage> {
 
     final DateTime completedAt = DateTime.now();
     final CompletionRecord record = pendingRecord ??= CompletionRecord(
-      id: widget.graceDraft?.id ??
+      id:
+          widget.graceDraft?.id ??
           '${widget.courseNumber}-${completedAt.microsecondsSinceEpoch}',
       courseNumber: widget.courseNumber,
       courseTitle: widget.courseTitle,
@@ -91,7 +91,10 @@ class _CompletionSignaturePageState extends State<CompletionSignaturePage> {
         }
         if (!alreadyCommitted) {
           stage = 'prepare';
-          stableRecord = await graceDraftRepository.prepareCompletion(grace, record);
+          stableRecord = await graceDraftRepository.prepareCompletion(
+            grace,
+            record,
+          );
         }
         pendingRecord = stableRecord;
         mySignedAt = stableRecord.mySignedAt;
@@ -99,12 +102,18 @@ class _CompletionSignaturePageState extends State<CompletionSignaturePage> {
       }
       if (!alreadyCommitted) {
         stage = 'commit';
-        await store.add(stableRecord);
+        if (store is CompletionEditingStore) {
+          await CompletionActions(store).saveNew(stableRecord);
+        } else {
+          await store.add(stableRecord);
+        }
       }
       if (grace != null) {
         stage = 'verify';
         final savedRecords = await store.loadAll();
-        if (!savedRecords.any((saved) => saved.hasSameCompletionContent(stableRecord))) {
+        if (!savedRecords.any(
+          (saved) => saved.hasSameCompletionContent(stableRecord),
+        )) {
           throw StateError('completion_readback_conflict');
         }
         completionVerified = true;
@@ -116,11 +125,15 @@ class _CompletionSignaturePageState extends State<CompletionSignaturePage> {
     } catch (_) {
       debugPrint('level=ERROR event=completionFinishFailed stage=$stage');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
-        completionVerified
-            ? '완료 기록은 저장되었습니다. 마무리 정리가 끝나지 않았습니다. 다시 눌러 주세요.'
-            : '기록을 저장하지 못했습니다. 서명과 내용은 유지됩니다. 다시 저장해 주세요.',
-      )));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            completionVerified
+                ? '완료 기록은 저장되었습니다. 마무리 정리가 끝나지 않았습니다. 다시 눌러 주세요.'
+                : '기록을 저장하지 못했습니다. 서명과 내용은 유지됩니다. 다시 저장해 주세요.',
+          ),
+        ),
+      );
       setState(() => isSaving = false);
       return;
     }

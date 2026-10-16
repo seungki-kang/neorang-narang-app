@@ -22,15 +22,15 @@ class QuestionDraft {
   final DateTime savedAt;
 
   Map<String, dynamic> toJson() => {
-        'courseNumber': courseNumber,
-        'courseTitle': courseTitle,
-        'participationMode': participationMode.name,
-        'myDisplayName': myDisplayName,
-        'partnerDisplayName': partnerDisplayName,
-        'firstAskerIsMe': firstAskerIsMe,
-        'currentQuestionIndex': currentQuestionIndex,
-        'savedAt': savedAt.toIso8601String(),
-      };
+    'courseNumber': courseNumber,
+    'courseTitle': courseTitle,
+    'participationMode': participationMode.name,
+    'myDisplayName': myDisplayName,
+    'partnerDisplayName': partnerDisplayName,
+    'firstAskerIsMe': firstAskerIsMe,
+    'currentQuestionIndex': currentQuestionIndex,
+    'savedAt': savedAt.toIso8601String(),
+  };
 
   factory QuestionDraft.fromJson(Map<String, dynamic> json) {
     return QuestionDraft(
@@ -47,4 +47,3 @@ class QuestionDraft {
     );
   }
 }
-

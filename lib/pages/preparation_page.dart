@@ -49,10 +49,11 @@ class _PreparationPageState extends State<PreparationPage> {
   Widget build(BuildContext context) {
     final bool isTogether =
         widget.participationMode == ParticipationMode.together;
-    final String myAddress =
-        makeAddress(widget.myName, widget.myHonorific);
-    final String partnerAddress =
-        makeAddress(widget.partnerName, widget.partnerHonorific);
+    final String myAddress = makeAddress(widget.myName, widget.myHonorific);
+    final String partnerAddress = makeAddress(
+      widget.partnerName,
+      widget.partnerHonorific,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -125,4 +126,3 @@ class _PreparationPageState extends State<PreparationPage> {
     );
   }
 }
-

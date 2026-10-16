@@ -40,8 +40,9 @@ class CourseSelectionPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isTogether = participationMode == ParticipationMode.together;
-    final String participantText =
-        isTogether ? '참여자: $myName · $partnerName' : '참여자: $myName';
+    final String participantText = isTogether
+        ? '참여자: $myName · $partnerName'
+        : '참여자: $myName';
 
     return Scaffold(
       appBar: AppBar(
@@ -60,9 +61,7 @@ class CourseSelectionPage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              isTogether
-                  ? '두 분이 함께 진행할 과정을 선택해 주세요.'
-                  : '혼자 진행할 과정을 선택해 주세요.',
+              isTogether ? '두 분이 함께 진행할 과정을 선택해 주세요.' : '혼자 진행할 과정을 선택해 주세요.',
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 32),
@@ -138,4 +137,3 @@ class CourseCard extends StatelessWidget {
     );
   }
 }
-

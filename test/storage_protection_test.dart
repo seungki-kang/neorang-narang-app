@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,18 +9,26 @@ const completionKey = 'neorang_narang_completion_records_v1';
 const draftKey = 'neorang_narang_question_draft_v1';
 
 CompletionRecord sampleRecord() => CompletionRecord(
-  id: 'fixture', courseNumber: 1, courseTitle: '테스트',
+  id: 'fixture',
+  courseNumber: 1,
+  courseTitle: '테스트',
   participationMode: ParticipationMode.solo,
-  myName: '테스트', partnerName: '',
-  completedAt: DateTime(2026, 10, 9), mySignedAt: DateTime(2026, 10, 9),
-  partnerSignedAt: null, graceReflection: '보존할 기록',
+  myName: '테스트',
+  partnerName: '',
+  completedAt: DateTime(2026, 10, 9),
+  mySignedAt: DateTime(2026, 10, 9),
+  partnerSignedAt: null,
+  graceReflection: '보존할 기록',
   graceReflectionPending: false,
 );
 QuestionDraft sampleDraft() => QuestionDraft(
-  courseNumber: 1, courseTitle: '테스트',
+  courseNumber: 1,
+  courseTitle: '테스트',
   participationMode: ParticipationMode.solo,
-  myDisplayName: '테스트', partnerDisplayName: '',
-  firstAskerIsMe: true, currentQuestionIndex: 0,
+  myDisplayName: '테스트',
+  partnerDisplayName: '',
+  firstAskerIsMe: true,
+  currentQuestionIndex: 0,
   savedAt: DateTime(2026, 10, 9),
 );
 
@@ -30,6 +39,7 @@ class RetryingStore implements CompletionStore {
     if (fail) throw const StorageReadException();
     return [sampleRecord()];
   }
+
   @override
   Future<void> add(CompletionRecord record) async {}
   @override
@@ -50,17 +60,27 @@ void main() {
   });
 
   for (final raw in ['', '{broken', '{}', '[{"id":"partial"}]']) {
-    test('unreadable completion blocks writes and preserves raw: $raw', () async {
-      SharedPreferences.setMockInitialValues({completionKey: raw});
-      final store = CompletionRepository();
-      await expectLater(store.loadAll(), throwsA(isA<StorageReadException>()));
-      await expectLater(store.add(sampleRecord()),
-          throwsA(isA<StorageReadException>()));
-      await expectLater(store.saveGraceReflection('fixture', 'new'),
-          throwsA(isA<StorageReadException>()));
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString(completionKey), raw);
-    });
+    test(
+      'unreadable completion blocks writes and preserves raw: $raw',
+      () async {
+        SharedPreferences.setMockInitialValues({completionKey: raw});
+        final store = CompletionRepository();
+        await expectLater(
+          store.loadAll(),
+          throwsA(isA<StorageReadException>()),
+        );
+        await expectLater(
+          store.add(sampleRecord()),
+          throwsA(isA<StorageReadException>()),
+        );
+        await expectLater(
+          store.saveGraceReflection('fixture', 'new'),
+          throwsA(isA<StorageReadException>()),
+        );
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString(completionKey), raw);
+      },
+    );
   }
 
   for (final raw in ['', '{broken', '[]', '{"courseNumber":1}']) {
@@ -68,8 +88,10 @@ void main() {
       SharedPreferences.setMockInitialValues({draftKey: raw});
       final store = QuestionDraftRepository();
       await expectLater(store.load(), throwsA(isA<StorageReadException>()));
-      await expectLater(store.save(sampleDraft()),
-          throwsA(isA<StorageReadException>()));
+      await expectLater(
+        store.save(sampleDraft()),
+        throwsA(isA<StorageReadException>()),
+      );
       await expectLater(store.clear(), throwsA(isA<StorageReadException>()));
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString(draftKey), raw);
@@ -94,12 +116,13 @@ void main() {
     expect(await draftStore.load(), isNull);
   });
 
-  testWidgets('history error is distinct from empty and retry recovers',
-      (tester) async {
+  testWidgets('history error is distinct from empty and retry recovers', (
+    tester,
+  ) async {
     final store = RetryingStore();
-    await tester.pumpWidget(MaterialApp(
-      home: CompletionHistoryPage(completionStore: store),
-    ));
+    await tester.pumpWidget(
+      MaterialApp(home: CompletionHistoryPage(completionStore: store)),
+    );
     await tester.pumpAndSettle();
     expect(find.text('저장된 기록을 읽지 못했습니다.'), findsOneWidget);
     expect(find.text('총 0회의 문답을 마쳤습니다.'), findsNothing);

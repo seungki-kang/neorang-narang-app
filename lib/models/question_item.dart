@@ -11,4 +11,3 @@ class QuestionItem {
   final String questionTemplate;
   final List<String> answerLines;
 }
-

@@ -244,7 +244,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
   for (final mode in ['empty', 'question', 'grace', 'corrupt']) {
-    testWidgets('home archive opens independently of drafts: $mode', (
+    testWidgets('home unsaved menu follows actual pending records: $mode', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(1080, 1920);
@@ -283,11 +283,16 @@ void main() {
       });
       await tester.pumpWidget(const MaterialApp(home: HomePage()));
       await drain(tester);
-      expect(find.byTooltip('복구 보관함'), findsOneWidget);
-      await tester.tap(find.byTooltip('복구 보관함'));
-      await drain(tester);
-      expect(find.byType(GraceRecoveryArchivePage), findsOneWidget);
-      expect(find.text('복구 보관 기록이 없습니다.'), findsOneWidget);
+      if (mode == 'grace') {
+        expect(find.byTooltip('저장되지 않은 기록 1개'), findsOneWidget);
+        await tester.tap(find.byTooltip('저장되지 않은 기록 1개'));
+        await drain(tester);
+        expect(find.byType(UnsavedRecordsPage), findsOneWidget);
+        expect(find.text('저장 대기 중인 내용'), findsOneWidget);
+      } else {
+        expect(find.byTooltip('저장되지 않은 기록 1개'), findsNothing);
+        expect(find.byType(UnsavedRecordsPage), findsNothing);
+      }
       expect(find.byType(AlertDialog), findsNothing);
     });
   }

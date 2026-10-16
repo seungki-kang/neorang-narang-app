@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neorang_narang_app/main.dart';
@@ -18,38 +19,54 @@ class ControlledCompletionStore implements CompletionStore {
       throw StateError('simulated acknowledgement failure');
     }
   }
+
   @override
   Future<List<CompletionRecord>> loadAll() async => persisted.values.toList();
   @override
   Future<int> countForCourse(int courseNumber) async => persisted.values
-      .where((record) => record.courseNumber == courseNumber).length;
+      .where((record) => record.courseNumber == courseNumber)
+      .length;
   @override
   Future<List<CompletionRecord>> pendingGraceRecords() async => [];
   @override
   Future<void> saveGraceReflection(String recordId, String reflection) async {}
 }
 
-Future<void> openSignature(WidgetTester tester, ControlledCompletionStore store) async {
+Future<void> openSignature(
+  WidgetTester tester,
+  ControlledCompletionStore store,
+) async {
   tester.view.physicalSize = const Size(1080, 1920);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  await tester.pumpWidget(MaterialApp(
-    home: Scaffold(body: Builder(builder: (context) {
-      return TextButton(
-        onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-          builder: (_) => CompletionSignaturePage(
-            courseNumber: 1, courseTitle: '테스트 과정',
-            participationMode: ParticipationMode.solo,
-            myName: '테스트 참여자', partnerName: '',
-            graceReflection: '보존할 은혜 기록',
-            graceReflectionPending: false, completionStore: store,
-          ),
-        )),
-        child: const Text('시작'),
-      );
-    })),
-  ));
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) {
+            return TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => CompletionSignaturePage(
+                    courseNumber: 1,
+                    courseTitle: '테스트 과정',
+                    participationMode: ParticipationMode.solo,
+                    myName: '테스트 참여자',
+                    partnerName: '',
+                    graceReflection: '보존할 은혜 기록',
+                    graceReflectionPending: false,
+                    completionStore: store,
+                  ),
+                ),
+              ),
+              child: const Text('시작'),
+            );
+          },
+        ),
+      ),
+    ),
+  );
   await tester.tap(find.text('시작'));
   await tester.pumpAndSettle();
 }
@@ -65,7 +82,9 @@ void main() {
     expect(store.attempts, isEmpty);
   });
 
-  testWidgets('failed acknowledgement preserves content and retries once', (tester) async {
+  testWidgets('failed acknowledgement preserves content and retries once', (
+    tester,
+  ) async {
     final store = ControlledCompletionStore()..failFirstAfterWrite = true;
     await openSignature(tester, store);
     await tester.tap(find.text('서명하기'));
@@ -87,7 +106,9 @@ void main() {
     expect(find.byType(CompletionSignaturePage), findsNothing);
   });
 
-  testWidgets('pending save blocks duplicate taps and leaving the screen', (tester) async {
+  testWidgets('pending save blocks duplicate taps and leaving the screen', (
+    tester,
+  ) async {
     final store = ControlledCompletionStore()..gate = Completer<void>();
     await openSignature(tester, store);
     await tester.tap(find.text('서명하기'));
@@ -107,7 +128,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('disposed screen does not update after delayed save', (tester) async {
+  testWidgets('disposed screen does not update after delayed save', (
+    tester,
+  ) async {
     final store = ControlledCompletionStore()..gate = Completer<void>();
     await openSignature(tester, store);
     await tester.tap(find.text('서명하기'));

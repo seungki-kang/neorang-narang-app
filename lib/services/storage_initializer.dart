@@ -10,8 +10,7 @@ bool get _supportsMobileSqlite {
 }
 
 Future<void> initializeStorage() async {
-  final QuestionDraftRepository legacyDraftStore =
-      QuestionDraftRepository();
+  final QuestionDraftRepository legacyDraftStore = QuestionDraftRepository();
   final CompletionRepository legacyCompletionStore = CompletionRepository();
 
   if (!_supportsMobileSqlite) {
@@ -47,8 +46,8 @@ Future<void> _migrateLegacyStorage({
   if (preferences.getBool(_legacyMigrationKey) == true) return;
 
   final QuestionDraft? legacyDraft = await legacyDraftStore.load();
-  final List<CompletionRecord> legacyRecords =
-      await legacyCompletionStore.loadAll();
+  final List<CompletionRecord> legacyRecords = await legacyCompletionStore
+      .loadAll();
   final QuestionDraft? sqliteDraft = await sqliteDraftStore.load();
   if (legacyDraft != null && sqliteDraft == null) {
     await sqliteDraftStore.save(legacyDraft);

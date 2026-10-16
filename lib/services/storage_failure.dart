@@ -13,27 +13,26 @@ class StorageFailureView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.warning_amber, size: 48),
-              const SizedBox(height: 16),
-              const Text('저장된 기록을 읽지 못했습니다.',
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 8),
-              const Text(
-                '기록을 초기화하거나 앱을 삭제하지 마세요.\n'
-                '다시 시도해도 같다면 데이터 복구 확인이 필요합니다.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              FilledButton(onPressed: onRetry, child: const Text('다시 시도')),
-            ],
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.warning_amber, size: 48),
+          const SizedBox(height: 16),
+          const Text('저장된 기록을 읽지 못했습니다.', textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          const Text(
+            '기록을 초기화하거나 앱을 삭제하지 마세요.\n'
+            '다시 시도해도 같다면 데이터 복구 확인이 필요합니다.',
+            textAlign: TextAlign.center,
           ),
-        ),
-      );
+          const SizedBox(height: 16),
+          FilledButton(onPressed: onRetry, child: const Text('다시 시도')),
+        ],
+      ),
+    ),
+  );
 }
 
 class StorageStartupPage extends StatefulWidget {
@@ -58,9 +57,9 @@ class _StorageStartupPageState extends State<StorageStartupPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('너랑나랑')),
-        body: retrying
-            ? const Center(child: CircularProgressIndicator())
-            : StorageFailureView(onRetry: retry),
-      );
+    appBar: AppBar(title: const Text('너랑나랑')),
+    body: retrying
+        ? const Center(child: CircularProgressIndicator())
+        : StorageFailureView(onRetry: retry),
+  );
 }

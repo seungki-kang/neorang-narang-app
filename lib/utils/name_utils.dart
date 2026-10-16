@@ -6,4 +6,3 @@ String makeAddress(String name, String honorific) {
   }
   return honorific == '이름+님' ? '$name님' : honorific;
 }
-

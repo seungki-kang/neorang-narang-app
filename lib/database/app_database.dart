@@ -1,6 +1,10 @@
 part of '../main.dart';
 
 class AppDatabase {
+  // Public database injection supports isolated SQLite fixtures.
+  // ignore: prefer_initializing_formals
+  AppDatabase({Database? database, this.databasePath}) : _database = database;
+  final String? databasePath;
   Database? _database;
 
   Future<Database> get database async {
@@ -8,13 +12,12 @@ class AppDatabase {
     if (openedDatabase != null) return openedDatabase;
 
     final String databaseDirectory = await getDatabasesPath();
-    final String databasePath = path_util.join(
-      databaseDirectory,
-      StorageSchema.databaseName,
-    );
+    final String resolvedPath =
+        databasePath ??
+        path_util.join(databaseDirectory, StorageSchema.databaseName);
 
     final Database createdDatabase = await openDatabase(
-      databasePath,
+      resolvedPath,
       version: StorageSchema.databaseVersion,
       onCreate: _createTables,
       onUpgrade: _upgradeDatabase,
@@ -54,6 +57,7 @@ class AppDatabase {
       )
     ''');
 
+    await createRecoveryTables(database);
     await database.execute('''
       CREATE INDEX idx_completion_course
       ON ${StorageSchema.completionTable}(course_number)
@@ -69,6 +73,18 @@ class AppDatabase {
     int oldVersion,
     int newVersion,
   ) async {
-    // 다음 데이터베이스 버전에서 순차적인 migration을 추가합니다.
+    if (oldVersion < 2) await createRecoveryTables(database);
   }
+}
+
+Future<void> createRecoveryTables(DatabaseExecutor database) async {
+  await database.execute(
+    "CREATE TABLE completion_recoveries (id TEXT PRIMARY KEY, record_id TEXT NOT NULL, payload TEXT NOT NULL)",
+  );
+  await database.execute(
+    "CREATE INDEX idx_recovery_record ON completion_recoveries(record_id)",
+  );
+  await database.execute(
+    "CREATE TABLE deleted_completion_ids (id TEXT PRIMARY KEY)",
+  );
 }

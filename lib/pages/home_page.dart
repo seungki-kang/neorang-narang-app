@@ -16,6 +16,7 @@ class _HomePageState extends State<HomePage> {
   bool isLoadingProgress = true;
   bool hasStorageError = false;
   int loadGeneration = 0;
+  int recoveryCount = 0;
 
   @override
   void initState() {
@@ -31,6 +32,10 @@ class _HomePageState extends State<HomePage> {
       hasStorageError = false;
     });
     try {
+      final store = completionRepository;
+      final pending = store is CompletionEditingStore
+          ? await CompletionActions(store).pending()
+          : <PendingCompletion>[];
       final records = await completionRepository.loadAll();
 
       final savedDraft = await questionDraftRepository.load();
@@ -41,23 +46,27 @@ class _HomePageState extends State<HomePage> {
       final completedGrace = savedGrace;
       if (completedGrace != null &&
           records.any((record) => record.id == completedGrace.id)) {
-        if (!records.any((record) => completedGrace.matchesCompletion(record))) {
-          conflict = records.firstWhere((record) => record.id == completedGrace.id);
-        } else {
-          await clearQuestionForGrace(completedGrace);
-          await graceDraftRepository.clearIfId(completedGrace.id);
-          savedGrace = null;
+        if (!records.any(
+          (record) => completedGrace.matchesCompletion(record),
+        )) {
+          conflict = records.firstWhere(
+            (record) => record.id == completedGrace.id,
+          );
         }
       }
 
       final remainingQuestion = savedGrace == null
-          ? await questionDraftRepository.load() : savedDraft;
+          ? await questionDraftRepository.load()
+          : savedDraft;
       if (!mounted || generation != loadGeneration) return;
       setState(() {
+        recoveryCount = pending.length;
         chapter1Progress = ChapterProgress(
-            records.where((r) => r.courseNumber == 1).length);
+          records.where((r) => r.courseNumber == 1).length,
+        );
         chapter2Progress = ChapterProgress(
-            records.where((r) => r.courseNumber == 2).length);
+          records.where((r) => r.courseNumber == 2).length,
+        );
         questionDraft = savedGrace == null ? remainingQuestion : null;
         graceDraft = savedGrace;
         conflictingCompletion = conflict;
@@ -81,25 +90,39 @@ class _HomePageState extends State<HomePage> {
     if (draft == null) return;
     final conflict = conflictingCompletion;
     if (conflict != null) {
-      await Navigator.push(context, MaterialPageRoute<void>(builder: (_) =>
-          GraceConflictPage(draft: draft, saved: conflict)));
+      await Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => GraceConflictPage(draft: draft, saved: conflict),
+        ),
+      );
       if (mounted) await loadProgress();
       return;
     }
-    await Navigator.push(context, MaterialPageRoute<void>(builder: (_) =>
-      draft.awaitingSignature
-          ? CompletionSignaturePage(
-              courseNumber: draft.courseNumber, courseTitle: draft.courseTitle,
-              participationMode: draft.participationMode, myName: draft.myName,
-              partnerName: draft.partnerName, graceReflection: draft.reflection,
-              graceReflectionPending: false, graceDraft: draft,
-            )
-          : GraceReflectionPage(
-              courseNumber: draft.courseNumber, courseTitle: draft.courseTitle,
-              participationMode: draft.participationMode, myName: draft.myName,
-              partnerName: draft.partnerName, initialDraft: draft,
-            ),
-    ));
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => draft.awaitingSignature
+            ? CompletionSignaturePage(
+                courseNumber: draft.courseNumber,
+                courseTitle: draft.courseTitle,
+                participationMode: draft.participationMode,
+                myName: draft.myName,
+                partnerName: draft.partnerName,
+                graceReflection: draft.reflection,
+                graceReflectionPending: false,
+                graceDraft: draft,
+              )
+            : GraceReflectionPage(
+                courseNumber: draft.courseNumber,
+                courseTitle: draft.courseTitle,
+                participationMode: draft.participationMode,
+                myName: draft.myName,
+                partnerName: draft.partnerName,
+                initialDraft: draft,
+              ),
+      ),
+    );
     if (mounted) await loadProgress();
   }
 
@@ -139,9 +162,7 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('진행 중인 문답 삭제'),
-        content: const Text(
-          '저장된 진행 내용을 삭제하고 처음부터 시작하시겠습니까?',
-        ),
+        content: const Text('저장된 진행 내용을 삭제하고 처음부터 시작하시겠습니까?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -169,12 +190,20 @@ class _HomePageState extends State<HomePage> {
         title: const Text('너랑나랑'),
         backgroundColor: Colors.deepPurple.shade200,
         actions: [
-          IconButton(
-            tooltip: '복구 보관함',
-            icon: const Icon(Icons.inventory_2_outlined),
-            onPressed: () => Navigator.push(context, MaterialPageRoute<void>(
-              builder: (_) => const GraceRecoveryArchivePage())),
-          ),
+          if (!isLoadingProgress && !hasStorageError && recoveryCount > 0)
+            IconButton(
+              tooltip: '저장되지 않은 기록 $recoveryCount개',
+              icon: const Icon(Icons.inventory_2_outlined),
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => const UnsavedRecordsPage(),
+                  ),
+                );
+                if (mounted) await loadProgress();
+              },
+            ),
           IconButton(
             tooltip: '나의 문답 기록',
             icon: const Icon(Icons.history),
@@ -241,23 +270,39 @@ class _HomePageState extends State<HomePage> {
                   progress: chapter2Progress,
                 ),
               ],
+              if (!isLoadingProgress && !hasStorageError && recoveryCount > 0)
+                Text('저장되지 않은 기록 $recoveryCount개'),
               if (graceDraft != null) ...[
                 const SizedBox(height: 20),
-                Card(child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(children: [
-                    Text(conflictingCompletion != null
-                        ? '은혜 기록 두 내용을 확인해 주세요' : '마무리하지 않은 은혜 기록'),
-                    Text('${graceDraft!.courseNumber}장 ${graceDraft!.courseTitle}'),
-                    const SizedBox(height: 12),
-                    FilledButton.icon(
-                      onPressed: resumeGrace,
-                      icon: const Icon(Icons.edit),
-                      label: Text(conflictingCompletion != null ? '두 기록 비교하고 복구하기' : graceDraft!.awaitingSignature
-                          ? '서명 이어서 마무리하기' : '은혜 기록 이어쓰기'),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      children: [
+                        Text(
+                          conflictingCompletion != null
+                              ? '은혜 기록 두 내용을 확인해 주세요'
+                              : '마무리하지 않은 은혜 기록',
+                        ),
+                        Text(
+                          '${graceDraft!.courseNumber}장 ${graceDraft!.courseTitle}',
+                        ),
+                        const SizedBox(height: 12),
+                        FilledButton.icon(
+                          onPressed: resumeGrace,
+                          icon: const Icon(Icons.edit),
+                          label: Text(
+                            conflictingCompletion != null
+                                ? '두 기록 비교하고 복구하기'
+                                : graceDraft!.awaitingSignature
+                                ? '서명 이어서 마무리하기'
+                                : '은혜 기록 이어쓰기',
+                          ),
+                        ),
+                      ],
                     ),
-                  ]),
-                )),
+                  ),
+                ),
               ],
               if (questionDraft != null && graceDraft == null) ...[
                 const SizedBox(height: 20),
@@ -271,11 +316,13 @@ class _HomePageState extends State<HomePage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                onPressed: isLoadingProgress || hasStorageError || graceDraft != null
-                    ? null : openQuestions,
-                icon: const Icon(Icons.arrow_forward),
-                label: const Text('문답 시작하기'),
-              ),
+                  onPressed:
+                      isLoadingProgress || hasStorageError || graceDraft != null
+                      ? null
+                      : openQuestions,
+                  icon: const Icon(Icons.arrow_forward),
+                  label: const Text('문답 시작하기'),
+                ),
               ),
               const SizedBox(height: 10),
               SizedBox(
@@ -285,8 +332,7 @@ class _HomePageState extends State<HomePage> {
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>
-                            const CompletionHistoryPage(),
+                        builder: (context) => const CompletionHistoryPage(),
                       ),
                     );
                     if (mounted) await loadProgress();
@@ -302,4 +348,3 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
-

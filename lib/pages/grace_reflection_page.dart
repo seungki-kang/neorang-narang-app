@@ -40,22 +40,32 @@ class _GraceReflectionPageState extends State<GraceReflectionPage>
   }
 
   Future<void> initializeDraft() async {
-    setState(() { loadingDraft = true; loadFailed = false; });
+    setState(() {
+      loadingDraft = true;
+      loadFailed = false;
+    });
     try {
       final stored = await graceDraftRepository.load();
       final initial = widget.initialDraft;
-      if (stored != null && (stored.courseNumber != widget.courseNumber ||
-          stored.myName != widget.myName || stored.partnerName != widget.partnerName ||
-          stored.participationMode != widget.participationMode ||
-          (initial != null && initial.id != stored.id))) {
+      if (stored != null &&
+          (stored.courseNumber != widget.courseNumber ||
+              stored.myName != widget.myName ||
+              stored.partnerName != widget.partnerName ||
+              stored.participationMode != widget.participationMode ||
+              (initial != null && initial.id != stored.id))) {
         throw StateError('another_grace_draft_exists');
       }
-      final value = stored ?? initial ?? GraceDraft(
-        id: 'grace-${DateTime.now().microsecondsSinceEpoch}',
-        courseNumber: widget.courseNumber, courseTitle: widget.courseTitle,
-        participationMode: widget.participationMode,
-        myName: widget.myName, partnerName: widget.partnerName,
-      );
+      final value =
+          stored ??
+          initial ??
+          GraceDraft(
+            id: 'grace-${DateTime.now().microsecondsSinceEpoch}',
+            courseNumber: widget.courseNumber,
+            courseTitle: widget.courseTitle,
+            participationMode: widget.participationMode,
+            myName: widget.myName,
+            partnerName: widget.partnerName,
+          );
       await graceDraftRepository.save(value);
       if (!mounted) return;
       setState(() {
@@ -66,7 +76,10 @@ class _GraceReflectionPageState extends State<GraceReflectionPage>
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() { loadingDraft = false; loadFailed = true; });
+      setState(() {
+        loadingDraft = false;
+        loadFailed = true;
+      });
     }
   }
 
@@ -119,9 +132,8 @@ class _GraceReflectionPageState extends State<GraceReflectionPage>
     final String reflection = reflectionController.text.trim();
     if (skipReflection && reflection.isNotEmpty) return;
     if (!skipReflection && reflection.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('하나님이 주신 은혜를 기록해 주세요.')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('하나님이 주신 은혜를 기록해 주세요.')));
       return;
     }
 
@@ -161,79 +173,84 @@ class _GraceReflectionPageState extends State<GraceReflectionPage>
       body: loadingDraft
           ? const Center(child: CircularProgressIndicator())
           : loadFailed
-              ? StorageFailureView(onRetry: initializeDraft)
-              : SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Icon(
-                Icons.auto_awesome,
-                size: 48,
-                color: Colors.deepPurple,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                '너랑나랑 하면서\n하나님이 주신 은혜가 무엇인가요?',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 24,
-                  height: 1.45,
-                  fontWeight: FontWeight.bold,
+          ? StorageFailureView(onRetry: initializeDraft)
+          : SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Icon(
+                      Icons.auto_awesome,
+                      size: 48,
+                      color: Colors.deepPurple,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      '너랑나랑 하면서\n하나님이 주신 은혜가 무엇인가요?',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 24,
+                        height: 1.45,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      '짧은 문장도 좋습니다. 지금 마음에 남은 은혜를 기록해 보세요.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 15, color: Colors.black54),
+                    ),
+                    const SizedBox(height: 24),
+                    TextField(
+                      controller: reflectionController,
+                      onChanged: reflectionChanged,
+                      enabled: !transitioning,
+                      minLines: 5,
+                      maxLines: 8,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        hintText: '하나님이 주신 은혜를 기록해 주세요.',
+                        alignLabelWithHint: true,
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(saveStatus, textAlign: TextAlign.center),
+                    if (saveStatus.startsWith('임시저장 실패'))
+                      TextButton(
+                        onPressed: persistDraft,
+                        child: const Text('다시 저장'),
+                      ),
+                    const SizedBox(height: 20),
+                    FilledButton.icon(
+                      onPressed: transitioning
+                          ? null
+                          : () => continueToSignature(skipReflection: false),
+                      icon: const Icon(Icons.edit),
+                      label: const Text('은혜 기록하고 서명하기'),
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed:
+                          transitioning ||
+                              reflectionController.text.trim().isNotEmpty
+                          ? null
+                          : () => continueToSignature(skipReflection: true),
+                      icon: const Icon(Icons.favorite_border),
+                      label: const Text('마음에 담고 마무리하기'),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      '기록하지 않아도 괜찮습니다. 받은 은혜를 마음에 담고 '
+                      '편안하게 마무리할 수 있습니다.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: Colors.black54),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
-              const Text(
-                '짧은 문장도 좋습니다. 지금 마음에 남은 은혜를 기록해 보세요.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15, color: Colors.black54),
-              ),
-              const SizedBox(height: 24),
-              TextField(
-                controller: reflectionController,
-                onChanged: reflectionChanged,
-                enabled: !transitioning,
-                minLines: 5,
-                maxLines: 8,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: '하나님이 주신 은혜를 기록해 주세요.',
-                  alignLabelWithHint: true,
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(saveStatus, textAlign: TextAlign.center),
-              if (saveStatus.startsWith('임시저장 실패'))
-                TextButton(onPressed: persistDraft, child: const Text('다시 저장')),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: transitioning ? null
-                    : () => continueToSignature(skipReflection: false),
-                icon: const Icon(Icons.edit),
-                label: const Text('은혜 기록하고 서명하기'),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: transitioning || reflectionController.text.trim().isNotEmpty
-                    ? null
-                    : () => continueToSignature(skipReflection: true),
-                icon: const Icon(Icons.favorite_border),
-                label: const Text('마음에 담고 마무리하기'),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                '기록하지 않아도 괜찮습니다. 받은 은혜를 마음에 담고 '
-                '편안하게 마무리할 수 있습니다.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Colors.black54),
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }
-

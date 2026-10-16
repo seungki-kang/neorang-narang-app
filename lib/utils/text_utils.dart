@@ -13,4 +13,3 @@ String formatSignedAt(DateTime dateTime) {
   return '${dateTime.year}.${twoDigits(dateTime.month)}.${twoDigits(dateTime.day)} '
       '${twoDigits(dateTime.hour)}:${twoDigits(dateTime.minute)}';
 }
-

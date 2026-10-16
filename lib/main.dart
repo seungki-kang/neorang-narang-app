@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:async';
 
+import 'package:crypto/crypto.dart' as crypto;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path_util;
@@ -12,6 +14,12 @@ part 'app.dart';
 part 'models/participation_mode.dart';
 part 'models/question_draft.dart';
 part 'models/completion_record.dart';
+part 'models/completion_recovery.dart';
+part 'repositories/completion_editing_store.dart';
+part 'repositories/legacy_recovery_repository.dart';
+part 'services/completion_actions.dart';
+part 'pages/completion_detail_page.dart';
+part 'pages/unsaved_records_page.dart';
 part 'models/chapter_progress.dart';
 part 'models/question_item.dart';
 part 'repositories/question_draft_repository.dart';
