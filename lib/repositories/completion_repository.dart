@@ -8,7 +8,7 @@ class CompletionRepository implements CompletionStore {
     final SharedPreferences preferences =
         await SharedPreferences.getInstance();
     final String? stored = preferences.getString(_storageKey);
-    if (stored == null || stored.isEmpty) return [];
+    if (stored == null) return [];
 
     try {
       final List<dynamic> decoded = jsonDecode(stored) as List<dynamic>;
@@ -20,7 +20,7 @@ class CompletionRepository implements CompletionStore {
           )
           .toList();
     } catch (_) {
-      return [];
+      throw const StorageReadException();
     }
   }
 
@@ -29,12 +29,20 @@ class CompletionRepository implements CompletionStore {
     final SharedPreferences preferences =
         await SharedPreferences.getInstance();
     final List<CompletionRecord> records = await loadAll();
-    if (records.any((item) => item.id == record.id)) return;
+    for (final item in records) {
+      if (item.id == record.id) {
+        if (!item.hasSameCompletionContent(record)) {
+          throw StateError('completion_identity_conflict');
+        }
+        return;
+      }
+    }
     records.add(record);
-    await preferences.setString(
+    final bool saved = await preferences.setString(
       _storageKey,
       jsonEncode(records.map((item) => item.toJson()).toList()),
     );
+    if (!saved) throw StateError('completion_write_failed');
   }
 
   @override
@@ -66,9 +74,10 @@ class CompletionRepository implements CompletionStore {
               : record,
         )
         .toList();
-    await preferences.setString(
+    final bool saved = await preferences.setString(
       _storageKey,
       jsonEncode(updated.map((item) => item.toJson()).toList()),
     );
+    if (!saved) throw StateError('completion_write_failed');
   }
 }

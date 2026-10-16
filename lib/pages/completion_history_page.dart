@@ -1,7 +1,8 @@
 part of '../main.dart';
 
 class CompletionHistoryPage extends StatefulWidget {
-  const CompletionHistoryPage({super.key});
+  const CompletionHistoryPage({super.key, this.completionStore});
+  final CompletionStore? completionStore;
 
   @override
   State<CompletionHistoryPage> createState() =>
@@ -12,6 +13,7 @@ class _CompletionHistoryPageState extends State<CompletionHistoryPage> {
   List<CompletionRecord> records = [];
   int selectedCourse = 0;
   bool isLoading = true;
+  bool hasStorageError = false;
 
   List<CompletionRecord> get filteredRecords {
     if (selectedCourse == 0) return records;
@@ -27,13 +29,27 @@ class _CompletionHistoryPageState extends State<CompletionHistoryPage> {
   }
 
   Future<void> loadRecords() async {
-    final loaded = await completionRepository.loadAll();
-    loaded.sort((a, b) => b.completedAt.compareTo(a.completedAt));
-    if (!mounted) return;
     setState(() {
-      records = loaded;
-      isLoading = false;
+      isLoading = true;
+      hasStorageError = false;
     });
+    try {
+      final loaded = await
+          (widget.completionStore ?? completionRepository).loadAll();
+      loaded.sort((a, b) => b.completedAt.compareTo(a.completedAt));
+      if (!mounted) return;
+      setState(() {
+        records = loaded;
+        isLoading = false;
+      });
+    } catch (_) {
+      AppLogger.error(AppLogEvent.storageReadFailed);
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        hasStorageError = true;
+      });
+    }
   }
 
   String participantText(CompletionRecord record) {
@@ -136,6 +152,12 @@ class _CompletionHistoryPageState extends State<CompletionHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (hasStorageError) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('나의 문답 기록')),
+        body: StorageFailureView(onRetry: loadRecords),
+      );
+    }
     final visibleRecords = filteredRecords;
     return Scaffold(
       appBar: AppBar(

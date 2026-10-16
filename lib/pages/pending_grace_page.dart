@@ -10,6 +10,7 @@ class PendingGracePage extends StatefulWidget {
 class _PendingGracePageState extends State<PendingGracePage> {
   List<CompletionRecord> records = [];
   bool isLoading = true;
+  bool hasStorageError = false;
 
   @override
   void initState() {
@@ -18,12 +19,25 @@ class _PendingGracePageState extends State<PendingGracePage> {
   }
 
   Future<void> loadRecords() async {
-    final loaded = await completionRepository.pendingGraceRecords();
-    if (!mounted) return;
     setState(() {
-      records = loaded;
-      isLoading = false;
+      isLoading = true;
+      hasStorageError = false;
     });
+    try {
+      final loaded = await completionRepository.pendingGraceRecords();
+      if (!mounted) return;
+      setState(() {
+        records = loaded;
+        isLoading = false;
+      });
+    } catch (_) {
+      AppLogger.error(AppLogEvent.storageReadFailed);
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        hasStorageError = true;
+      });
+    }
   }
 
   Future<void> writeGrace(CompletionRecord record) async {
@@ -65,6 +79,12 @@ class _PendingGracePageState extends State<PendingGracePage> {
 
   @override
   Widget build(BuildContext context) {
+    if (hasStorageError) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('다음에 기록할 은혜')),
+        body: StorageFailureView(onRetry: loadRecords),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('다음에 기록할 은혜'),

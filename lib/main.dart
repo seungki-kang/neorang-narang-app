@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -17,11 +18,15 @@ part 'repositories/question_draft_repository.dart';
 part 'repositories/completion_repository.dart';
 part 'repositories/storage_contracts.dart';
 part 'repositories/repositories.dart';
+part 'repositories/participant_preferences.dart';
+part 'repositories/grace_draft_repository.dart';
 part 'data/storage_schema.dart';
 part 'database/app_database.dart';
 part 'repositories/sqlite_question_draft_repository.dart';
 part 'repositories/sqlite_completion_repository.dart';
 part 'services/storage_initializer.dart';
+part 'services/app_logger.dart';
+part 'services/storage_failure.dart';
 part 'data/question_data.dart';
 part 'utils/name_utils.dart';
 part 'utils/text_utils.dart';
@@ -40,6 +45,11 @@ part 'widgets/progress_card.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeStorage();
-  runApp(const MyApp());
+  try {
+    await initializeStorage();
+    runApp(const MyApp());
+  } catch (_) {
+    AppLogger.error(AppLogEvent.storageReadFailed);
+    runApp(const MaterialApp(home: StorageStartupPage()));
+  }
 }

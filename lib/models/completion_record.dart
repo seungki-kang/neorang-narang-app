@@ -41,6 +41,19 @@ class CompletionRecord {
         'graceReflectionPending': graceReflectionPending,
       };
 
+  bool hasSameCompletionContent(CompletionRecord other) {
+    if ((participationMode == ParticipationMode.together && partnerSignedAt == null) ||
+        (other.participationMode == ParticipationMode.together && other.partnerSignedAt == null)) {
+      return false;
+    }
+    final savedContent = Map<String, dynamic>.from(toJson());
+    final expectedContent = Map<String, dynamic>.from(other.toJson());
+    for (final key in ['completedAt', 'mySignedAt', 'partnerSignedAt']) {
+      savedContent.remove(key);
+      expectedContent.remove(key);
+    }
+    return mapEquals(savedContent, expectedContent);
+  }
   CompletionRecord withGraceReflection(String reflection) {
     return CompletionRecord(
       id: id,

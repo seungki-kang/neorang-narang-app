@@ -55,11 +55,17 @@ class SqliteCompletionRepository implements CompletionStore {
   @override
   Future<void> add(CompletionRecord record) async {
     final Database database = await _appDatabase.database;
-    await database.insert(
-      StorageSchema.completionTable,
-      _toRow(record),
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+    await database.transaction((txn) async {
+      final existing = await txn.query(StorageSchema.completionTable,
+          where: 'id = ?', whereArgs: [record.id], limit: 1);
+      if (existing.isNotEmpty) {
+        if (!_fromRow(existing.single).hasSameCompletionContent(record)) {
+          throw StateError('completion_identity_conflict');
+        }
+        return;
+      }
+      await txn.insert(StorageSchema.completionTable, _toRow(record));
+    });
   }
 
   @override
