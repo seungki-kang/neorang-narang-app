@@ -211,7 +211,8 @@ void main() {
     final store = ControlledHistoryStore();
     await open(tester, store);
     await tap(tester, '기록 삭제');
-    expect(find.text('문답 기록을 삭제할까요?'), findsOneWidget);
+    // Deletion now moves to trash; cancellation must still leave data untouched.
+    expect(find.text('복구 보관함으로 이동할까요?'), findsOneWidget);
     await tap(tester, '취소');
     expect(store.deletions, 0);
     expect((await tester.runAsync(() => store.loadAll()))!.length, 2);

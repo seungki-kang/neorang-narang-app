@@ -20,6 +20,7 @@ part 'repositories/legacy_recovery_repository.dart';
 part 'services/completion_actions.dart';
 part 'pages/completion_detail_page.dart';
 part 'pages/unsaved_records_page.dart';
+part 'pages/deleted_records_page.dart';
 part 'models/chapter_progress.dart';
 part 'models/question_item.dart';
 part 'repositories/question_draft_repository.dart';

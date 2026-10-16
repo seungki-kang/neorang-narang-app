@@ -2,7 +2,7 @@ part of '../main.dart';
 
 /// A single envelope commits records and recovery operations together. v1 is
 /// preserved; once v2 exists it is authoritative, including explicit deletions.
-class CompletionRepository implements CompletionEditingStore {
+class CompletionRepository implements CompletionTrashStore {
   static const _storageKey = 'neorang_narang_completion_records_v1';
   static const stateKey = 'neorang_narang_completion_state_v2';
   static Future<void>? _tail;
@@ -53,8 +53,15 @@ class CompletionRepository implements CompletionEditingStore {
 
   Future<void> _write(_CompletionState state) async {
     final prefs = await SharedPreferences.getInstance();
-    if (!await prefs.setString(stateKey, jsonEncode(state.toJson()))) {
-      throw StateError('completion_write_failed');
+    try {
+      if (!await prefs.setString(stateKey, jsonEncode(state.toJson()))) {
+        throw StateError('completion_write_failed');
+      }
+    } catch (_) {
+      // setString updates the plugin cache before the platform acknowledges it.
+      // Reload the persisted state before another operation can read that cache.
+      await prefs.reload();
+      rethrow;
     }
   }
 
@@ -100,6 +107,7 @@ class CompletionRepository implements CompletionEditingStore {
       });
   @override
   Future<void> stageRecovery(CompletionRecovery entry) => _serial(() async {
+    if (entry.isTrash) throw StateError('trash_requires_delete');
     CompletionRecovery.fromJson(entry.toJson());
     final state = await _read();
     if (state.deleted.contains(entry.record.id)) {
@@ -118,13 +126,19 @@ class CompletionRepository implements CompletionEditingStore {
     await _write(state);
   });
   @override
-  Future<List<CompletionRecovery>> listRecoveries() =>
-      _serial(() async => (await _read()).recoveries);
+  Future<List<CompletionRecovery>> listRecoveries() => _serial(
+    () async => (await _read()).recoveries.where((e) => !e.isTrash).toList(),
+  );
+  @override
+  Future<List<CompletionRecovery>> listTrash() => _serial(
+    () async => (await _read()).recoveries.where((e) => e.isTrash).toList(),
+  );
   @override
   Future<void> retryRecovery(String recoveryId) => _serial(() async {
     final state = await _read();
     final entry = state.recoveries.where((r) => r.id == recoveryId).firstOrNull;
     if (entry == null) return;
+    if (entry.isTrash) throw StateError('trash_requires_restore');
     if (state.deleted.contains(entry.record.id)) {
       throw StateError('completion_deleted');
     }
@@ -143,6 +157,7 @@ class CompletionRepository implements CompletionEditingStore {
     final state = await _read();
     final entry = state.recoveries.where((r) => r.id == recoveryId).firstOrNull;
     if (entry == null) return;
+    if (entry.isTrash) throw StateError('trash_requires_permanent_delete');
     if (entry.before == null &&
         !state.records.any((r) => r.id == entry.record.id)) {
       state.deleted.add(entry.record.id);
@@ -153,8 +168,51 @@ class CompletionRepository implements CompletionEditingStore {
   @override
   Future<void> deleteById(String id) => _serial(() async {
     final state = await _read();
+    if (state.recoveries.any((e) => e.id == 'trash:$id')) return;
+    final record = state.records.where((r) => r.id == id).firstOrNull;
+    if (record == null) throw StateError('completion_missing');
+    final entry = CompletionRecovery(
+      record: record,
+      attemptedAt: DateTime.now(),
+      deletedAt: DateTime.now(),
+      suspendedRecoveries: state.recoveries
+          .where((e) => e.record.id == id)
+          .toList(),
+    );
     state.records.removeWhere((r) => r.id == id);
     state.recoveries.removeWhere((r) => r.record.id == id);
+    state.recoveries.add(entry);
+    state.deleted.add(id);
+    await _write(state);
+  });
+  @override
+  Future<void> restoreTrash(String id) => _serial(() async {
+    final state = await _read();
+    final entry = state.recoveries
+        .where((e) => e.isTrash && e.record.id == id)
+        .firstOrNull;
+    if (entry == null) throw StateError('trash_missing');
+    if (state.records.any((r) => r.id == id)) {
+      throw StateError('restore_conflict');
+    }
+    if (entry.suspendedRecoveries.any(
+      (pending) => state.recoveries.any((current) => current.id == pending.id),
+    )) {
+      throw StateError('restore_conflict');
+    }
+    state.records.add(entry.record);
+    state.deleted.remove(id);
+    state.recoveries.remove(entry);
+    state.recoveries.addAll(entry.suspendedRecoveries);
+    await _write(state);
+  });
+  @override
+  Future<void> permanentlyDeleteTrash(String id) => _serial(() async {
+    final state = await _read();
+    if (state.records.any((r) => r.id == id)) {
+      throw StateError('restore_conflict');
+    }
+    state.recoveries.removeWhere((e) => e.isTrash && e.record.id == id);
     state.deleted.add(id);
     await _write(state);
   });
@@ -186,9 +244,9 @@ class CompletionRepository implements CompletionEditingStore {
     if (prefs.getString(stateKey) != null) {
       final state = await _read();
       if (state.records.any((r) => r.id == id) ||
-          state.recoveries.any((r) => r.record.id == id)) {
+          state.recoveries.any((r) => !r.isTrash && r.record.id == id)) {
         state.records.removeWhere((r) => r.id == id);
-        state.recoveries.removeWhere((r) => r.record.id == id);
+        state.recoveries.removeWhere((r) => !r.isTrash && r.record.id == id);
         state.deleted.add(id);
         await _write(state);
       }

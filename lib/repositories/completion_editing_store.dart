@@ -12,3 +12,11 @@ abstract interface class CompletionEditingStore implements CompletionStore {
   Future<bool> wasDeleted(String id);
   Future<List<String>> deletedIds();
 }
+
+/// Separate queries prevent deleted snapshots from entering save retries.
+abstract interface class CompletionTrashStore
+    implements CompletionEditingStore {
+  Future<List<CompletionRecovery>> listTrash();
+  Future<void> restoreTrash(String id);
+  Future<void> permanentlyDeleteTrash(String id);
+}

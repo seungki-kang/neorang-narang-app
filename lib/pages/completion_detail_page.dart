@@ -116,8 +116,8 @@ class _CompletionDetailPageState extends State<CompletionDetailPage> {
           );
       if (!mounted) return;
       final approved = await confirm(
-        '문답 기록을 삭제할까요?',
-        '삭제하면 이 완료 기록과 은혜 기록이 사라지고 시즌 진행도에도 반영됩니다. 이 작업은 되돌릴 수 없습니다.${related ? ' 이 기록에 연결된 저장 대기 내용과 이전 복구 원본도 함께 삭제합니다. 다른 기록은 유지됩니다.' : ''}',
+        '복구 보관함으로 이동할까요?',
+        '이 기록은 완료 횟수와 시즌에서 제외됩니다. 복구 보관함에서 원래 기록을 복원하거나 영구 삭제할 수 있습니다.${related ? ' 연결된 저장 대기 내용은 보관 중 다시 저장되지 않습니다.' : ''}',
         '기록 삭제',
       );
       if (!mounted) return;

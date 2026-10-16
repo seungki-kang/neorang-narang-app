@@ -1,6 +1,6 @@
 part of '../main.dart';
 
-class SqliteCompletionRepository implements CompletionEditingStore {
+class SqliteCompletionRepository implements CompletionTrashStore {
   SqliteCompletionRepository(this._appDatabase);
 
   final AppDatabase _appDatabase;
@@ -155,9 +155,17 @@ class SqliteCompletionRepository implements CompletionEditingStore {
   Future<List<CompletionRecovery>> listRecoveries() async =>
       (await (await _appDatabase.database).query(StorageSchema.recoveryTable))
           .map(_recovery)
+          .where((e) => !e.isTrash)
+          .toList();
+  @override
+  Future<List<CompletionRecovery>> listTrash() async =>
+      (await (await _appDatabase.database).query(StorageSchema.recoveryTable))
+          .map(_recovery)
+          .where((e) => e.isTrash)
           .toList();
   @override
   Future<void> stageRecovery(CompletionRecovery entry) async {
+    if (entry.isTrash) throw StateError('trash_requires_delete');
     CompletionRecovery.fromJson(entry.toJson());
     final db = await _appDatabase.database;
     await db.transaction((txn) async {
@@ -204,6 +212,7 @@ class SqliteCompletionRepository implements CompletionEditingStore {
       );
       if (rows.isEmpty) return;
       final entry = _recovery(rows.single);
+      if (entry.isTrash) throw StateError('trash_requires_restore');
       if (await _deleted(txn, entry.record.id)) {
         throw StateError('completion_deleted');
       }
@@ -242,6 +251,7 @@ class SqliteCompletionRepository implements CompletionEditingStore {
       );
       if (rows.isEmpty) return;
       final entry = _recovery(rows.single);
+      if (entry.isTrash) throw StateError('trash_requires_permanent_delete');
       if (entry.before == null && await _find(txn, entry.record.id) == null) {
         await txn.insert(StorageSchema.deletedTable, {
           'id': entry.record.id,
@@ -259,6 +269,31 @@ class SqliteCompletionRepository implements CompletionEditingStore {
   Future<void> deleteById(String id) async {
     final db = await _appDatabase.database;
     await db.transaction((txn) async {
+      final oldTrash = await txn.query(
+        StorageSchema.recoveryTable,
+        where: 'id = ?',
+        whereArgs: ['trash:$id'],
+      );
+      if (oldTrash.isNotEmpty) {
+        if (!_recovery(oldTrash.single).isTrash) {
+          throw const StorageReadException();
+        }
+        return;
+      }
+      final record = await _find(txn, id);
+      if (record == null) throw StateError('completion_missing');
+      final pending = (await txn.query(
+        StorageSchema.recoveryTable,
+        where: 'record_id = ?',
+        whereArgs: [id],
+      )).map(_recovery).toList();
+      final now = DateTime.now();
+      final entry = CompletionRecovery(
+        record: record,
+        attemptedAt: now,
+        deletedAt: now,
+        suspendedRecoveries: pending,
+      );
       await txn.insert(StorageSchema.deletedTable, {
         'id': id,
       }, conflictAlgorithm: ConflictAlgorithm.ignore);
@@ -272,9 +307,72 @@ class SqliteCompletionRepository implements CompletionEditingStore {
         where: 'id = ?',
         whereArgs: [id],
       );
+      await txn.insert(StorageSchema.recoveryTable, {
+        'id': entry.id,
+        'record_id': id,
+        'payload': jsonEncode(entry.toJson()),
+      });
       if (await _find(txn, id) != null) {
         throw StateError('completion_delete_failed');
       }
+    });
+  }
+
+  @override
+  Future<void> restoreTrash(String id) async {
+    final db = await _appDatabase.database;
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        StorageSchema.recoveryTable,
+        where: 'id = ?',
+        whereArgs: ['trash:$id'],
+      );
+      if (rows.isEmpty) throw StateError('trash_missing');
+      final entry = _recovery(rows.single);
+      if (!entry.isTrash) throw const StorageReadException();
+      if (await _find(txn, id) != null) throw StateError('restore_conflict');
+      await txn.insert(StorageSchema.completionTable, _toRow(entry.record));
+      await txn.delete(
+        StorageSchema.deletedTable,
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      await txn.delete(
+        StorageSchema.recoveryTable,
+        where: 'id = ?',
+        whereArgs: [entry.id],
+      );
+      for (final pending in entry.suspendedRecoveries) {
+        await txn.insert(StorageSchema.recoveryTable, {
+          'id': pending.id,
+          'record_id': id,
+          'payload': jsonEncode(pending.toJson()),
+        });
+      }
+    });
+  }
+
+  @override
+  Future<void> permanentlyDeleteTrash(String id) async {
+    final db = await _appDatabase.database;
+    await db.transaction((txn) async {
+      if (await _find(txn, id) != null) throw StateError('restore_conflict');
+      final rows = await txn.query(
+        StorageSchema.recoveryTable,
+        where: 'id = ?',
+        whereArgs: ['trash:$id'],
+      );
+      if (rows.isNotEmpty && !_recovery(rows.single).isTrash) {
+        throw const StorageReadException();
+      }
+      await txn.insert(StorageSchema.deletedTable, {
+        'id': id,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      await txn.delete(
+        StorageSchema.recoveryTable,
+        where: 'id = ?',
+        whereArgs: ['trash:$id'],
+      );
     });
   }
 }

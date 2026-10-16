@@ -40,6 +40,7 @@ class CompletionActions {
     }
     // Legacy prefs cannot participate in a SQLite transaction. A durable tombstone
     // prevents resurrection if cleanup is interrupted; home/page load retries it.
+    if (store is CompletionTrashStore) return true;
     try {
       await cleanLegacy(id);
       return true;
@@ -49,6 +50,12 @@ class CompletionActions {
   }
 
   Future<void> cleanLegacy(String id) async {
+    final trashStore = store;
+    if (trashStore is CompletionTrashStore &&
+        (await trashStore.listTrash()).any((e) => e.record.id == id)) {
+      return;
+    }
+    if (await store.findById(id) != null) return;
     await CompletionRepository().purgeRetainedCopy(id);
     final draft = await graceDraftRepository.load();
     if (draft?.id == id) await graceDraftRepository.clearIfId(id);
@@ -56,7 +63,13 @@ class CompletionActions {
   }
 
   Future<List<PendingCompletion>> pending() async {
+    final trashStore = store;
+    final archivedIds = trashStore is CompletionTrashStore
+        ? (await trashStore.listTrash()).map((e) => e.record.id).toSet()
+        : <String>{};
     for (final id in await store.deletedIds()) {
+      if (archivedIds.contains(id)) continue;
+      if (await store.findById(id) != null) continue;
       await cleanLegacy(id);
     }
     final entries = await store.listRecoveries();
@@ -81,7 +94,7 @@ class CompletionActions {
     final grace = await graceDraftRepository.load();
     if (grace != null) {
       if (await store.wasDeleted(grace.id)) {
-        await cleanLegacy(grace.id);
+        if (!archivedIds.contains(grace.id)) await cleanLegacy(grace.id);
       } else if (!result.any((e) => e.recordId == grace.id)) {
         final current = await store.findById(grace.id);
         if (current != null && grace.matchesCompletion(current)) {
@@ -94,6 +107,7 @@ class CompletionActions {
     }
     final legacyStore = LegacyRecoveryRepository();
     for (final legacy in await legacyStore.list()) {
+      if (await store.wasDeleted(legacy.before.id)) continue;
       final current = await store.findById(legacy.before.id);
       if (current != null && sameCompletion(current, legacy.desired)) {
         await legacyStore.remove(

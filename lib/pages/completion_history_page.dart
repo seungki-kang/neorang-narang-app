@@ -92,6 +92,27 @@ class _CompletionHistoryPageState extends State<CompletionHistoryPage> {
       appBar: AppBar(
         title: const Text('나의 문답 기록'),
         actions: [
+          if ((widget.completionStore ?? completionRepository)
+              is CompletionTrashStore)
+            IconButton(
+              tooltip: '복구 보관함',
+              icon: const Icon(Icons.restore_from_trash_outlined),
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => DeletedRecordsPage(
+                            store:
+                                (widget.completionStore ?? completionRepository)
+                                    as CompletionTrashStore,
+                          ),
+                        ),
+                      );
+                      if (mounted) await loadRecords();
+                    },
+            ),
           if (!isLoading && !hasStorageError && pendingCount > 0)
             IconButton(
               tooltip: '저장되지 않은 기록 $pendingCount개',
