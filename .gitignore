@@ -68,3 +68,4 @@ key.properties
 /test-result.txt
 *.tmp
 *.temp
+/test-results/

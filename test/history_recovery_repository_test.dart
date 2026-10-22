@@ -217,7 +217,7 @@ void main() {
         );
         await expectLater(
           store.stageRecovery(entry).then((_) => store.retryRecovery(entry.id)),
-          throwsA(anything),
+          throwsA(isA<StorageReadException>()),
         );
         expect((await store.findById('a'))!.courseNumber, 1);
       });
@@ -249,7 +249,7 @@ void main() {
             );
             await expectLater(
               CompletionActions(store).saveNew(fixture('pending-new')),
-              throwsA(anything),
+              throwsA(isA<DatabaseException>()),
             );
             expect(await store.findById('pending-new'), isNull);
             expect((await store.listRecoveries()).single.id, 'new:pending-new');
@@ -276,7 +276,7 @@ void main() {
             await db!.execute(
               "CREATE TRIGGER fail_cleanup BEFORE DELETE ON completion_recoveries BEGIN SELECT RAISE(ABORT, 'injected'); END",
             );
-            await expectLater(store.retryRecovery(entry.id), throwsA(anything));
+            await expectLater(store.retryRecovery(entry.id), throwsA(isA<DatabaseException>()));
             expect((await store.findById('a'))!.graceReflection, '기존 은혜');
             expect((await store.listRecoveries()).single.id, entry.id);
           },
@@ -294,7 +294,7 @@ void main() {
               attemptedAt: DateTime(2026),
             );
             await store.stageRecovery(entry);
-            await expectLater(store.retryRecovery(entry.id), throwsA(anything));
+            await expectLater(store.retryRecovery(entry.id), throwsA(isA<DatabaseException>()));
             expect((await store.findById('a'))!.graceReflection, '기존 은혜');
             expect((await store.listRecoveries()).single.id, entry.id);
             await db!.execute('DROP TRIGGER fail_update');
@@ -315,7 +315,7 @@ void main() {
                 attemptedAt: DateTime(2026),
               ),
             );
-            await expectLater(store.deleteById('a'), throwsA(anything));
+            await expectLater(store.deleteById('a'), throwsA(isA<DatabaseException>()));
             expect(await store.countForCourse(1), 1);
             expect(await store.wasDeleted('a'), isFalse);
             expect((await store.listRecoveries()).length, 1);

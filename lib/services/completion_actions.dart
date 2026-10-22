@@ -1,13 +1,21 @@
 part of '../main.dart';
 
 class CompletionActions {
-  CompletionActions(this.store);
+  CompletionActions(
+    this.store, {
+    CompletionRecoveryContext? recoveryContext,
+    DateTime Function()? clock,
+  }) : recoveryContext = recoveryContext ?? StoredCompletionRecoveryContext(),
+       _now = clock ?? DateTime.now;
+
+  final CompletionRecoveryContext recoveryContext;
+  final DateTime Function() _now;
   final CompletionEditingStore store;
   Future<void> saveEdit(CompletionRecord before, String reflection) async {
     final entry = CompletionRecovery(
       before: before,
       record: before.withGraceReflection(reflection.trim()),
-      attemptedAt: DateTime.now(),
+      attemptedAt: _now(),
     );
     try {
       await store.stageRecovery(entry);
@@ -21,7 +29,7 @@ class CompletionActions {
   Future<void> saveNew(CompletionRecord record) async {
     final entry = CompletionRecovery(
       record: record,
-      attemptedAt: DateTime.now(),
+      attemptedAt: _now(),
     );
     await store.stageRecovery(entry);
     await store.retryRecovery(entry.id);
@@ -56,10 +64,10 @@ class CompletionActions {
       return;
     }
     if (await store.findById(id) != null) return;
-    await CompletionRepository().purgeRetainedCopy(id);
-    final draft = await graceDraftRepository.load();
-    if (draft?.id == id) await graceDraftRepository.clearIfId(id);
-    await LegacyRecoveryRepository().removeForRecord(id);
+    await recoveryContext.purgeRetained(id);
+    final draft = await recoveryContext.loadGrace();
+    if (draft?.id == id) await recoveryContext.clearGrace(id);
+    await recoveryContext.removeLegacyForRecord(id);
   }
 
   Future<List<PendingCompletion>> pending() async {
@@ -91,26 +99,25 @@ class CompletionActions {
         result.add(PendingCompletion(recovery: entry));
       }
     }
-    final grace = await graceDraftRepository.load();
+    final grace = await recoveryContext.loadGrace();
     if (grace != null) {
       if (await store.wasDeleted(grace.id)) {
         if (!archivedIds.contains(grace.id)) await cleanLegacy(grace.id);
       } else if (!result.any((e) => e.recordId == grace.id)) {
         final current = await store.findById(grace.id);
         if (current != null && grace.matchesCompletion(current)) {
-          await clearQuestionForGrace(grace);
-          await graceDraftRepository.clearIfId(grace.id);
+          await recoveryContext.clearQuestion(grace);
+          await recoveryContext.clearGrace(grace.id);
         } else {
           result.add(PendingCompletion(grace: grace));
         }
       }
     }
-    final legacyStore = LegacyRecoveryRepository();
-    for (final legacy in await legacyStore.list()) {
+    for (final legacy in await recoveryContext.listLegacy()) {
       if (await store.wasDeleted(legacy.before.id)) continue;
       final current = await store.findById(legacy.before.id);
       if (current != null && sameCompletion(current, legacy.desired)) {
-        await legacyStore.remove(
+        await recoveryContext.removeLegacy(
           legacy.id,
         ); // already committed, no UPDATE needed
         continue;
@@ -137,31 +144,31 @@ class CompletionActions {
       if (!GraceConflictRecovery.canUseDraft(legacy.draft, legacy.before)) {
         throw StateError('legacy_identity_conflict');
       }
-      await LegacyRecoveryRepository().markAttempt(legacy.id, DateTime.now());
+      await recoveryContext.markLegacyAttempt(legacy.id, _now());
       await saveEdit(legacy.before, legacy.reflection);
-      await LegacyRecoveryRepository().remove(legacy.id);
+      await recoveryContext.removeLegacy(legacy.id);
       return;
     }
     for (final source in pending.legacySources) {
-      await LegacyRecoveryRepository().markAttempt(source.id, DateTime.now());
+      await recoveryContext.markLegacyAttempt(source.id, _now());
     }
     final recovery = pending.recovery;
     if (recovery != null) {
       final entry = CompletionRecovery(
         record: recovery.record,
         before: recovery.before,
-        attemptedAt: DateTime.now(),
+        attemptedAt: _now(),
       );
       await store.stageRecovery(entry);
       await store.retryRecovery(entry.id);
-      final grace = await graceDraftRepository.load();
+      final grace = await recoveryContext.loadGrace();
       if (grace?.id == recovery.record.id &&
           grace!.matchesCompletion((await store.findById(grace.id))!)) {
-        await clearQuestionForGrace(grace);
-        await graceDraftRepository.clearIfId(grace.id);
+        await recoveryContext.clearQuestion(grace);
+        await recoveryContext.clearGrace(grace.id);
       }
       for (final source in pending.legacySources) {
-        await LegacyRecoveryRepository().remove(source.id);
+        await recoveryContext.removeLegacy(source.id);
       }
       return;
     }
@@ -171,37 +178,37 @@ class CompletionActions {
     final saved = await store.findById(grace.id);
     if (saved == null || grace.matchesCompletion(saved)) {
       await saveNew(record);
-      await clearQuestionForGrace(grace);
-      await graceDraftRepository.clearIfId(grace.id);
+      await recoveryContext.clearQuestion(grace);
+      await recoveryContext.clearGrace(grace.id);
     } else {
       if (!GraceConflictRecovery.canUseDraft(grace, saved)) {
         throw StateError('completion_identity_conflict');
       }
       await saveEdit(saved, record.graceReflection);
-      await clearQuestionForGrace(grace);
-      await graceDraftRepository.clearIfId(grace.id);
+      await recoveryContext.clearQuestion(grace);
+      await recoveryContext.clearGrace(grace.id);
     }
     for (final source in pending.legacySources) {
-      await LegacyRecoveryRepository().remove(source.id);
+      await recoveryContext.removeLegacy(source.id);
     }
   }
 
   Future<void> discard(PendingCompletion pending) async {
     if (pending.legacy != null) {
-      await LegacyRecoveryRepository().remove(pending.legacy!.id);
+      await recoveryContext.removeLegacy(pending.legacy!.id);
       return;
     }
     if (pending.recovery != null) {
       await store.discardRecovery(pending.recovery!.id);
     }
-    final grace = await graceDraftRepository.load();
+    final grace = await recoveryContext.loadGrace();
     if (grace?.id == pending.recordId &&
         (grace!.pendingRecord?.graceReflection ?? grace.reflection) ==
             pending.reflection) {
-      await graceDraftRepository.clearIfId(pending.recordId);
+      await recoveryContext.clearGrace(pending.recordId);
     }
     for (final source in pending.legacySources) {
-      await LegacyRecoveryRepository().remove(source.id);
+      await recoveryContext.removeLegacy(source.id);
     }
   }
 }

@@ -1,5 +1,3 @@
-part of '../main.dart';
-
 String makeAddress(String name, String honorific) {
   if (honorific.isEmpty) {
     return name;

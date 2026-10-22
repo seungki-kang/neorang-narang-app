@@ -126,6 +126,16 @@ class _HomePageState extends State<HomePage> {
     if (mounted) await loadProgress();
   }
 
+  Future<void> openHistory() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => const CompletionHistoryPage(),
+      ),
+    );
+    if (mounted) await loadProgress();
+  }
+
   Future<void> openQuestions() async {
     await Navigator.push(
       context,
@@ -207,15 +217,7 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             tooltip: '나의 문답 기록',
             icon: const Icon(Icons.history),
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const CompletionHistoryPage(),
-                ),
-              );
-              if (mounted) await loadProgress();
-            },
+            onPressed: openHistory,
           ),
         ],
       ),
@@ -328,15 +330,7 @@ class _HomePageState extends State<HomePage> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const CompletionHistoryPage(),
-                      ),
-                    );
-                    if (mounted) await loadProgress();
-                  },
+                  onPressed: openHistory,
                   icon: const Icon(Icons.menu_book),
                   label: const Text('나의 문답 기록'),
                 ),

@@ -1,5 +1,3 @@
-part of '../main.dart';
-
 class QuestionItem {
   const QuestionItem({
     required this.id,

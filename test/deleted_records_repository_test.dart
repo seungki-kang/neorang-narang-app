@@ -220,7 +220,7 @@ void main() {
         ]) {
           test('atomic move rollback: $trigger', () async {
             await db!.execute(trigger);
-            await expectLater(store.deleteById('a'), throwsA(anything));
+            await expectLater(store.deleteById('a'), throwsA(isA<DatabaseException>()));
             expect(
               (await store.findById('a'))!.toJson(),
               fixture('a').toJson(),
@@ -237,7 +237,7 @@ void main() {
           test('atomic restore rollback: $trigger', () async {
             await store.deleteById('a');
             await db!.execute(trigger);
-            await expectLater(store.restoreTrash('a'), throwsA(anything));
+            await expectLater(store.restoreTrash('a'), throwsA(isA<DatabaseException>()));
             expect(await store.findById('a'), isNull);
             expect(await store.listTrash(), hasLength(1));
             expect(await store.wasDeleted('a'), isTrue);

@@ -1,5 +1,3 @@
-part of '../main.dart';
-
 String withTopicParticle(String text) {
   if (text.isEmpty) return text;
   final int code = text.runes.last;
