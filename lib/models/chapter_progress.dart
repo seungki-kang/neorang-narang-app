@@ -1,5 +1,3 @@
-part of '../main.dart';
-
 class ChapterProgress {
   const ChapterProgress(this.completedCount);
 

@@ -34,21 +34,17 @@ class SqliteQuestionDraftRepository implements QuestionDraftStore {
   @override
   Future<void> save(QuestionDraft draft) async {
     final Database database = await _appDatabase.database;
-    await database.insert(
-      StorageSchema.draftTable,
-      {
-        'id': StorageSchema.activeDraftId,
-        'course_number': draft.courseNumber,
-        'course_title': draft.courseTitle,
-        'participation_mode': draft.participationMode.name,
-        'my_display_name': draft.myDisplayName,
-        'partner_display_name': draft.partnerDisplayName,
-        'first_asker_is_me': draft.firstAskerIsMe ? 1 : 0,
-        'current_question_index': draft.currentQuestionIndex,
-        'saved_at': draft.savedAt.toIso8601String(),
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await database.insert(StorageSchema.draftTable, {
+      'id': StorageSchema.activeDraftId,
+      'course_number': draft.courseNumber,
+      'course_title': draft.courseTitle,
+      'participation_mode': draft.participationMode.name,
+      'my_display_name': draft.myDisplayName,
+      'partner_display_name': draft.partnerDisplayName,
+      'first_asker_is_me': draft.firstAskerIsMe ? 1 : 0,
+      'current_question_index': draft.currentQuestionIndex,
+      'saved_at': draft.savedAt.toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   @override

@@ -1,5 +1,3 @@
-part of '../main.dart';
-
 class QuestionItem {
   const QuestionItem({
     required this.id,
@@ -11,4 +9,3 @@ class QuestionItem {
   final String questionTemplate;
   final List<String> answerLines;
 }
-

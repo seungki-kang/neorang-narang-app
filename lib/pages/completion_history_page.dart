@@ -1,17 +1,19 @@
 part of '../main.dart';
 
 class CompletionHistoryPage extends StatefulWidget {
-  const CompletionHistoryPage({super.key});
+  const CompletionHistoryPage({super.key, this.completionStore});
+  final CompletionStore? completionStore;
 
   @override
-  State<CompletionHistoryPage> createState() =>
-      _CompletionHistoryPageState();
+  State<CompletionHistoryPage> createState() => _CompletionHistoryPageState();
 }
 
 class _CompletionHistoryPageState extends State<CompletionHistoryPage> {
   List<CompletionRecord> records = [];
   int selectedCourse = 0;
   bool isLoading = true;
+  bool hasStorageError = false;
+  int pendingCount = 0;
 
   List<CompletionRecord> get filteredRecords {
     if (selectedCourse == 0) return records;
@@ -27,13 +29,31 @@ class _CompletionHistoryPageState extends State<CompletionHistoryPage> {
   }
 
   Future<void> loadRecords() async {
-    final loaded = await completionRepository.loadAll();
-    loaded.sort((a, b) => b.completedAt.compareTo(a.completedAt));
-    if (!mounted) return;
     setState(() {
-      records = loaded;
-      isLoading = false;
+      isLoading = true;
+      hasStorageError = false;
     });
+    try {
+      final store = widget.completionStore ?? completionRepository;
+      final loaded = await store.loadAll();
+      final pending = store is CompletionEditingStore
+          ? await CompletionActions(store).pending()
+          : <PendingCompletion>[];
+      loaded.sort((a, b) => b.completedAt.compareTo(a.completedAt));
+      if (!mounted) return;
+      setState(() {
+        records = loaded;
+        pendingCount = pending.length;
+        isLoading = false;
+      });
+    } catch (_) {
+      AppLogger.error(AppLogEvent.storageReadFailed);
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        hasStorageError = true;
+      });
+    }
   }
 
   String participantText(CompletionRecord record) {
@@ -43,103 +63,73 @@ class _CompletionHistoryPageState extends State<CompletionHistoryPage> {
     return '${record.myName} · ${record.partnerName} · 함께 하기';
   }
 
-  void showRecordDetail(CompletionRecord record) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(
-            24,
-            8,
-            24,
-            24 + MediaQuery.of(sheetContext).viewInsets.bottom,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '${record.courseNumber}장 「${record.courseTitle}」',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                formatSignedAt(record.completedAt),
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.black54),
-              ),
-              const SizedBox(height: 20),
-              _HistoryDetailRow(
-                icon: Icons.people,
-                title: '참여자',
-                value: participantText(record),
-              ),
-              const SizedBox(height: 12),
-              _HistoryDetailRow(
-                icon: Icons.verified,
-                title: '나의 완료 확인',
-                value: formatSignedAt(record.mySignedAt),
-              ),
-              if (record.partnerSignedAt != null) ...[
-                const SizedBox(height: 12),
-                _HistoryDetailRow(
-                  icon: Icons.verified_user,
-                  title: '상대방 완료 확인',
-                  value: formatSignedAt(record.partnerSignedAt!),
-                ),
-              ],
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Colors.deepPurple.shade50,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.deepPurple.shade100),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '하나님이 주신 은혜',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.deepPurple,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      record.graceReflection.trim().isEmpty
-                          ? '마음에 담고 마무리했습니다.'
-                          : record.graceReflection,
-                      style: const TextStyle(fontSize: 16, height: 1.55),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              FilledButton(
-                onPressed: () => Navigator.pop(sheetContext),
-                child: const Text('확인'),
-              ),
-            ],
-          ),
+  Future<void> showRecordDetail(CompletionRecord record) async {
+    final store = widget.completionStore ?? completionRepository;
+    if (store is! CompletionEditingStore) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute<bool>(
+        builder: (_) => CompletionDetailPage(
+          record: record,
+          store: store,
+          onChanged: loadRecords,
         ),
       ),
     );
+    if (mounted) await loadRecords();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (hasStorageError) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('나의 문답 기록')),
+        body: StorageFailureView(onRetry: loadRecords),
+      );
+    }
     final visibleRecords = filteredRecords;
     return Scaffold(
       appBar: AppBar(
         title: const Text('나의 문답 기록'),
+        actions: [
+          if ((widget.completionStore ?? completionRepository)
+              is CompletionTrashStore)
+            IconButton(
+              tooltip: '복구 보관함',
+              icon: const Icon(Icons.restore_from_trash_outlined),
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => DeletedRecordsPage(
+                            store:
+                                (widget.completionStore ?? completionRepository)
+                                    as CompletionTrashStore,
+                          ),
+                        ),
+                      );
+                      if (mounted) await loadRecords();
+                    },
+            ),
+          if (!isLoading && !hasStorageError && pendingCount > 0)
+            IconButton(
+              tooltip: '저장되지 않은 기록 $pendingCount개',
+              icon: const Icon(Icons.inventory_2_outlined),
+              onPressed: () async {
+                final store = widget.completionStore ?? completionRepository;
+                if (store is! CompletionEditingStore) return;
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => UnsavedRecordsPage(store: store),
+                  ),
+                );
+                if (mounted) await loadRecords();
+              },
+            ),
+        ],
         backgroundColor: Colors.deepPurple.shade200,
       ),
       body: SafeArea(
@@ -175,152 +165,113 @@ class _CompletionHistoryPageState extends State<CompletionHistoryPage> {
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : visibleRecords.isEmpty
-                      ? const _EmptyHistoryView()
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                          itemCount: visibleRecords.length,
-                          separatorBuilder: (_, _) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (context, index) {
-                            final record = visibleRecords[index];
-                            final bool hasGrace =
-                                record.graceReflection.trim().isNotEmpty;
-                            return Card(
-                              clipBehavior: Clip.antiAlias,
-                              child: InkWell(
-                                onTap: () => showRecordDetail(record),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(18),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                  ? const _EmptyHistoryView()
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                      itemCount: visibleRecords.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final record = visibleRecords[index];
+                        final bool hasGrace = record.graceReflection
+                            .trim()
+                            .isNotEmpty;
+                        return Card(
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            onTap: () => showRecordDetail(record),
+                            child: Padding(
+                              padding: const EdgeInsets.all(18),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
                                     children: [
-                                      Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 5,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.deepPurple.shade50,
-                                              borderRadius:
-                                                  BorderRadius.circular(20),
-                                            ),
-                                            child: Text(
-                                              '${record.courseNumber}장',
-                                              style: const TextStyle(
-                                                color: Colors.deepPurple,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.deepPurple.shade50,
+                                          borderRadius: BorderRadius.circular(
+                                            20,
                                           ),
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                            child: Text(
-                                              record.courseTitle,
-                                              style: const TextStyle(
-                                                fontSize: 19,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
+                                        ),
+                                        child: Text(
+                                          '${record.courseNumber}장',
+                                          style: const TextStyle(
+                                            color: Colors.deepPurple,
+                                            fontWeight: FontWeight.bold,
                                           ),
-                                          Text(
-                                            formatSignedAt(record.completedAt),
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.black54,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Text(
-                                        participantText(record),
-                                        style: const TextStyle(
-                                          color: Colors.black87,
                                         ),
                                       ),
-                                      const SizedBox(height: 10),
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            hasGrace
-                                                ? Icons.auto_awesome
-                                                : Icons.favorite_border,
-                                            size: 18,
-                                            color: Colors.deepPurple,
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          record.courseTitle,
+                                          style: const TextStyle(
+                                            fontSize: 19,
+                                            fontWeight: FontWeight.bold,
                                           ),
-                                          const SizedBox(width: 7),
-                                          Expanded(
-                                            child: Text(
-                                              hasGrace
-                                                  ? record.graceReflection
-                                                  : '마음에 담고 마무리했습니다.',
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                color: Colors.black54,
-                                                height: 1.4,
-                                              ),
-                                            ),
-                                          ),
-                                          const Icon(
-                                            Icons.chevron_right,
-                                            color: Colors.black38,
-                                          ),
-                                        ],
+                                        ),
+                                      ),
+                                      Text(
+                                        formatSignedAt(record.completedAt),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.black54,
+                                        ),
                                       ),
                                     ],
                                   ),
-                                ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    participantText(record),
+                                    style: const TextStyle(
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        hasGrace
+                                            ? Icons.auto_awesome
+                                            : Icons.favorite_border,
+                                        size: 18,
+                                        color: Colors.deepPurple,
+                                      ),
+                                      const SizedBox(width: 7),
+                                      Expanded(
+                                        child: Text(
+                                          hasGrace
+                                              ? record.graceReflection
+                                              : '마음에 담고 마무리했습니다.',
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Colors.black54,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ),
+                                      const Icon(
+                                        Icons.chevron_right,
+                                        color: Colors.black38,
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                            );
-                          },
-                        ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _HistoryDetailRow extends StatelessWidget {
-  const _HistoryDetailRow({
-    required this.icon,
-    required this.title,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String title;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: Colors.deepPurple),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(color: Colors.black54)),
-              const SizedBox(height: 3),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
@@ -358,4 +309,3 @@ class _EmptyHistoryView extends StatelessWidget {
     );
   }
 }
-

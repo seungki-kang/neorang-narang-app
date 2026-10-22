@@ -1,5 +1,3 @@
-part of '../main.dart';
-
 String withTopicParticle(String text) {
   if (text.isEmpty) return text;
   final int code = text.runes.last;
@@ -13,4 +11,3 @@ String formatSignedAt(DateTime dateTime) {
   return '${dateTime.year}.${twoDigits(dateTime.month)}.${twoDigits(dateTime.day)} '
       '${twoDigits(dateTime.hour)}:${twoDigits(dateTime.minute)}';
 }
-

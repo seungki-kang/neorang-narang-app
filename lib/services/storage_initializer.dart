@@ -10,8 +10,7 @@ bool get _supportsMobileSqlite {
 }
 
 Future<void> initializeStorage() async {
-  final QuestionDraftRepository legacyDraftStore =
-      QuestionDraftRepository();
+  final QuestionDraftRepository legacyDraftStore = QuestionDraftRepository();
   final CompletionRepository legacyCompletionStore = CompletionRepository();
 
   if (!_supportsMobileSqlite) {
@@ -47,17 +46,19 @@ Future<void> _migrateLegacyStorage({
   if (preferences.getBool(_legacyMigrationKey) == true) return;
 
   final QuestionDraft? legacyDraft = await legacyDraftStore.load();
+  final List<CompletionRecord> legacyRecords = await legacyCompletionStore
+      .loadAll();
   final QuestionDraft? sqliteDraft = await sqliteDraftStore.load();
   if (legacyDraft != null && sqliteDraft == null) {
     await sqliteDraftStore.save(legacyDraft);
   }
 
-  final List<CompletionRecord> legacyRecords =
-      await legacyCompletionStore.loadAll();
   for (final CompletionRecord record in legacyRecords) {
     await sqliteCompletionStore.add(record);
   }
 
   // 기존 데이터는 삭제하지 않습니다. SQLite 복사가 끝난 사실만 기록합니다.
-  await preferences.setBool(_legacyMigrationKey, true);
+  if (!await preferences.setBool(_legacyMigrationKey, true)) {
+    throw StateError('migration_marker_write_failed');
+  }
 }

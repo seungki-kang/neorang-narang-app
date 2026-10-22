@@ -46,3 +46,26 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local user data, credentials and generated artifacts
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.apk
+*.aab
+*.jks
+*.keystore
+*.p12
+*.pem
+.env
+.env.*
+!.env.example
+key.properties
+*.backup-*
+*-test-result.txt
+/test-result.txt
+*.tmp
+*.temp
+/test-results/

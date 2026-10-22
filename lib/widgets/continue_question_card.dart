@@ -15,8 +15,8 @@ class _ContinueQuestionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final String participantText =
         draft.participationMode == ParticipationMode.together
-            ? '${draft.myDisplayName} · ${draft.partnerDisplayName}'
-            : draft.myDisplayName;
+        ? '${draft.myDisplayName} · ${draft.partnerDisplayName}'
+        : draft.myDisplayName;
 
     return Card(
       color: Colors.deepPurple.shade50,
@@ -63,4 +63,3 @@ class _ContinueQuestionCard extends StatelessWidget {
     );
   }
 }
-

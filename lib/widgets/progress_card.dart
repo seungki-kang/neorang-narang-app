@@ -62,4 +62,3 @@ class ProgressCard extends StatelessWidget {
     );
   }
 }
-

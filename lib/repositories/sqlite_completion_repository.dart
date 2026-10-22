@@ -1,6 +1,6 @@
 part of '../main.dart';
 
-class SqliteCompletionRepository implements CompletionStore {
+class SqliteCompletionRepository implements CompletionTrashStore {
   SqliteCompletionRepository(this._appDatabase);
 
   final AppDatabase _appDatabase;
@@ -21,8 +21,7 @@ class SqliteCompletionRepository implements CompletionStore {
           ? null
           : DateTime.parse(row['partner_signed_at'] as String),
       graceReflection: row['grace_reflection'] as String,
-      graceReflectionPending:
-          (row['grace_reflection_pending'] as int) == 1,
+      graceReflectionPending: (row['grace_reflection_pending'] as int) == 1,
     );
   }
 
@@ -55,11 +54,24 @@ class SqliteCompletionRepository implements CompletionStore {
   @override
   Future<void> add(CompletionRecord record) async {
     final Database database = await _appDatabase.database;
-    await database.insert(
-      StorageSchema.completionTable,
-      _toRow(record),
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+    await database.transaction((txn) async {
+      if (await _deleted(txn, record.id)) {
+        throw StateError('completion_deleted');
+      }
+      final existing = await txn.query(
+        StorageSchema.completionTable,
+        where: 'id = ?',
+        whereArgs: [record.id],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) {
+        if (!_fromRow(existing.single).hasSameCompletionContent(record)) {
+          throw StateError('completion_identity_conflict');
+        }
+        return;
+      }
+      await txn.insert(StorageSchema.completionTable, _toRow(record));
+    });
   }
 
   @override
@@ -88,14 +100,279 @@ class SqliteCompletionRepository implements CompletionStore {
   @override
   Future<void> saveGraceReflection(String recordId, String reflection) async {
     final Database database = await _appDatabase.database;
-    await database.update(
+    final count = await database.update(
       StorageSchema.completionTable,
-      {
-        'grace_reflection': reflection,
-        'grace_reflection_pending': 0,
-      },
+      {'grace_reflection': reflection, 'grace_reflection_pending': 0},
       where: 'id = ?',
       whereArgs: [recordId],
     );
+    if (count != 1) throw StateError('completion_missing');
+  }
+
+  Future<bool> _deleted(DatabaseExecutor db, String id) async =>
+      (await db.query(
+        StorageSchema.deletedTable,
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      )).isNotEmpty;
+  Future<CompletionRecord?> _find(DatabaseExecutor db, String id) async {
+    final rows = await db.query(
+      StorageSchema.completionTable,
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : _fromRow(rows.single);
+  }
+
+  @override
+  Future<CompletionRecord?> findById(String id) async =>
+      _find(await _appDatabase.database, id);
+  @override
+  Future<List<String>> deletedIds() async =>
+      (await (await _appDatabase.database).query(StorageSchema.deletedTable))
+          .map((r) => r['id'] as String)
+          .toList();
+  @override
+  Future<bool> wasDeleted(String id) async =>
+      _deleted(await _appDatabase.database, id);
+  CompletionRecovery _recovery(Map<String, Object?> row) {
+    try {
+      final entry = CompletionRecovery.fromJson(
+        Map<String, dynamic>.from(jsonDecode(row['payload'] as String) as Map),
+      );
+      if (entry.id != row['id'] || entry.record.id != row['record_id']) {
+        throw const StorageReadException();
+      }
+      return entry;
+    } catch (_) {
+      throw const StorageReadException();
+    }
+  }
+
+  @override
+  Future<List<CompletionRecovery>> listRecoveries() async =>
+      (await (await _appDatabase.database).query(StorageSchema.recoveryTable))
+          .map(_recovery)
+          .where((e) => !e.isTrash)
+          .toList();
+  @override
+  Future<List<CompletionRecovery>> listTrash() async =>
+      (await (await _appDatabase.database).query(StorageSchema.recoveryTable))
+          .map(_recovery)
+          .where((e) => e.isTrash)
+          .toList();
+  @override
+  Future<void> stageRecovery(CompletionRecovery entry) async {
+    if (entry.isTrash) throw StateError('trash_requires_delete');
+    CompletionRecovery.fromJson(entry.toJson());
+    final db = await _appDatabase.database;
+    await db.transaction((txn) async {
+      if (await _deleted(txn, entry.record.id)) {
+        throw StateError('completion_deleted');
+      }
+      final rows = await txn.query(
+        StorageSchema.recoveryTable,
+        where: 'id = ?',
+        whereArgs: [entry.id],
+      );
+      if (rows.isNotEmpty) {
+        final old = _recovery(rows.single);
+        if (!sameCompletion(old.record, entry.record) ||
+            (old.before == null) != (entry.before == null) ||
+            (old.before != null &&
+                !sameCompletion(old.before!, entry.before!))) {
+          throw StateError('recovery_conflict');
+        }
+        await txn.update(
+          StorageSchema.recoveryTable,
+          {'payload': jsonEncode(entry.toJson())},
+          where: 'id = ?',
+          whereArgs: [entry.id],
+        );
+      } else {
+        await txn.insert(StorageSchema.recoveryTable, {
+          'id': entry.id,
+          'record_id': entry.record.id,
+          'payload': jsonEncode(entry.toJson()),
+        });
+      }
+    });
+  }
+
+  @override
+  Future<void> retryRecovery(String recoveryId) async {
+    final db = await _appDatabase.database;
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        StorageSchema.recoveryTable,
+        where: 'id = ?',
+        whereArgs: [recoveryId],
+      );
+      if (rows.isEmpty) return;
+      final entry = _recovery(rows.single);
+      if (entry.isTrash) throw StateError('trash_requires_restore');
+      if (await _deleted(txn, entry.record.id)) {
+        throw StateError('completion_deleted');
+      }
+      final current = await _find(txn, entry.record.id);
+      final saved = applyRecovery(entry, current);
+      if (current == null) {
+        await txn.insert(StorageSchema.completionTable, _toRow(saved));
+      } else if (!sameCompletion(saved, current)) {
+        final count = await txn.update(
+          StorageSchema.completionTable,
+          {
+            'grace_reflection': saved.graceReflection,
+            'grace_reflection_pending': saved.graceReflectionPending ? 1 : 0,
+          },
+          where: 'id = ?',
+          whereArgs: [saved.id],
+        );
+        if (count != 1) throw StateError('completion_missing');
+      }
+      await txn.delete(
+        StorageSchema.recoveryTable,
+        where: 'id = ?',
+        whereArgs: [recoveryId],
+      );
+    });
+  }
+
+  @override
+  Future<void> discardRecovery(String recoveryId) async {
+    final db = await _appDatabase.database;
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        StorageSchema.recoveryTable,
+        where: 'id = ?',
+        whereArgs: [recoveryId],
+      );
+      if (rows.isEmpty) return;
+      final entry = _recovery(rows.single);
+      if (entry.isTrash) throw StateError('trash_requires_permanent_delete');
+      if (entry.before == null && await _find(txn, entry.record.id) == null) {
+        await txn.insert(StorageSchema.deletedTable, {
+          'id': entry.record.id,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+      await txn.delete(
+        StorageSchema.recoveryTable,
+        where: 'id = ?',
+        whereArgs: [recoveryId],
+      );
+    });
+  }
+
+  @override
+  Future<void> deleteById(String id) async {
+    final db = await _appDatabase.database;
+    await db.transaction((txn) async {
+      final oldTrash = await txn.query(
+        StorageSchema.recoveryTable,
+        where: 'id = ?',
+        whereArgs: ['trash:$id'],
+      );
+      if (oldTrash.isNotEmpty) {
+        if (!_recovery(oldTrash.single).isTrash) {
+          throw const StorageReadException();
+        }
+        return;
+      }
+      final record = await _find(txn, id);
+      if (record == null) throw StateError('completion_missing');
+      final pending = (await txn.query(
+        StorageSchema.recoveryTable,
+        where: 'record_id = ?',
+        whereArgs: [id],
+      )).map(_recovery).toList();
+      final now = DateTime.now();
+      final entry = CompletionRecovery(
+        record: record,
+        attemptedAt: now,
+        deletedAt: now,
+        suspendedRecoveries: pending,
+      );
+      await txn.insert(StorageSchema.deletedTable, {
+        'id': id,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      await txn.delete(
+        StorageSchema.recoveryTable,
+        where: 'record_id = ?',
+        whereArgs: [id],
+      );
+      await txn.delete(
+        StorageSchema.completionTable,
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      await txn.insert(StorageSchema.recoveryTable, {
+        'id': entry.id,
+        'record_id': id,
+        'payload': jsonEncode(entry.toJson()),
+      });
+      if (await _find(txn, id) != null) {
+        throw StateError('completion_delete_failed');
+      }
+    });
+  }
+
+  @override
+  Future<void> restoreTrash(String id) async {
+    final db = await _appDatabase.database;
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        StorageSchema.recoveryTable,
+        where: 'id = ?',
+        whereArgs: ['trash:$id'],
+      );
+      if (rows.isEmpty) throw StateError('trash_missing');
+      final entry = _recovery(rows.single);
+      if (!entry.isTrash) throw const StorageReadException();
+      if (await _find(txn, id) != null) throw StateError('restore_conflict');
+      await txn.insert(StorageSchema.completionTable, _toRow(entry.record));
+      await txn.delete(
+        StorageSchema.deletedTable,
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      await txn.delete(
+        StorageSchema.recoveryTable,
+        where: 'id = ?',
+        whereArgs: [entry.id],
+      );
+      for (final pending in entry.suspendedRecoveries) {
+        await txn.insert(StorageSchema.recoveryTable, {
+          'id': pending.id,
+          'record_id': id,
+          'payload': jsonEncode(pending.toJson()),
+        });
+      }
+    });
+  }
+
+  @override
+  Future<void> permanentlyDeleteTrash(String id) async {
+    final db = await _appDatabase.database;
+    await db.transaction((txn) async {
+      if (await _find(txn, id) != null) throw StateError('restore_conflict');
+      final rows = await txn.query(
+        StorageSchema.recoveryTable,
+        where: 'id = ?',
+        whereArgs: ['trash:$id'],
+      );
+      if (rows.isNotEmpty && !_recovery(rows.single).isTrash) {
+        throw const StorageReadException();
+      }
+      await txn.insert(StorageSchema.deletedTable, {
+        'id': id,
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      await txn.delete(
+        StorageSchema.recoveryTable,
+        where: 'id = ?',
+        whereArgs: ['trash:$id'],
+      );
+    });
   }
 }

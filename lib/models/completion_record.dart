@@ -28,18 +28,34 @@ class CompletionRecord {
   final bool graceReflectionPending;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'courseNumber': courseNumber,
-        'courseTitle': courseTitle,
-        'participationMode': participationMode.name,
-        'myName': myName,
-        'partnerName': partnerName,
-        'completedAt': completedAt.toIso8601String(),
-        'mySignedAt': mySignedAt.toIso8601String(),
-        'partnerSignedAt': partnerSignedAt?.toIso8601String(),
-        'graceReflection': graceReflection,
-        'graceReflectionPending': graceReflectionPending,
-      };
+    'id': id,
+    'courseNumber': courseNumber,
+    'courseTitle': courseTitle,
+    'participationMode': participationMode.name,
+    'myName': myName,
+    'partnerName': partnerName,
+    'completedAt': completedAt.toIso8601String(),
+    'mySignedAt': mySignedAt.toIso8601String(),
+    'partnerSignedAt': partnerSignedAt?.toIso8601String(),
+    'graceReflection': graceReflection,
+    'graceReflectionPending': graceReflectionPending,
+  };
+
+  bool hasSameCompletionContent(CompletionRecord other) {
+    if ((participationMode == ParticipationMode.together &&
+            partnerSignedAt == null) ||
+        (other.participationMode == ParticipationMode.together &&
+            other.partnerSignedAt == null)) {
+      return false;
+    }
+    final savedContent = Map<String, dynamic>.from(toJson());
+    final expectedContent = Map<String, dynamic>.from(other.toJson());
+    for (final key in ['completedAt', 'mySignedAt', 'partnerSignedAt']) {
+      savedContent.remove(key);
+      expectedContent.remove(key);
+    }
+    return mapEquals(savedContent, expectedContent);
+  }
 
   CompletionRecord withGraceReflection(String reflection) {
     return CompletionRecord(
@@ -73,9 +89,7 @@ class CompletionRecord {
           ? null
           : DateTime.parse(json['partnerSignedAt'] as String),
       graceReflection: json['graceReflection'] as String? ?? '',
-      graceReflectionPending:
-          json['graceReflectionPending'] as bool? ?? false,
+      graceReflectionPending: json['graceReflectionPending'] as bool? ?? false,
     );
   }
 }
-

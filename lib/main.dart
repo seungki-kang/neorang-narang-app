@@ -1,29 +1,52 @@
 import 'dart:convert';
+import 'dart:async';
+
+import 'package:crypto/crypto.dart' as crypto;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path_util;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
+
+import 'models/participation_mode.dart';
+import 'models/chapter_progress.dart';
+import 'models/question_item.dart';
+import 'utils/name_utils.dart';
+import 'utils/text_utils.dart';
+
+export 'models/participation_mode.dart';
+export 'models/chapter_progress.dart';
+export 'models/question_item.dart';
+export 'utils/name_utils.dart';
+export 'utils/text_utils.dart';
 
 part 'app.dart';
-part 'models/participation_mode.dart';
 part 'models/question_draft.dart';
 part 'models/completion_record.dart';
-part 'models/chapter_progress.dart';
-part 'models/question_item.dart';
+part 'models/completion_recovery.dart';
+part 'repositories/completion_editing_store.dart';
+part 'repositories/legacy_recovery_repository.dart';
+part 'services/completion_actions.dart';
+part 'services/completion_recovery_context.dart';
+part 'pages/completion_detail_page.dart';
+part 'pages/unsaved_records_page.dart';
+part 'pages/deleted_records_page.dart';
 part 'repositories/question_draft_repository.dart';
 part 'repositories/completion_repository.dart';
 part 'repositories/storage_contracts.dart';
 part 'repositories/repositories.dart';
+part 'repositories/participant_preferences.dart';
+part 'repositories/grace_draft_repository.dart';
 part 'data/storage_schema.dart';
 part 'database/app_database.dart';
 part 'repositories/sqlite_question_draft_repository.dart';
 part 'repositories/sqlite_completion_repository.dart';
 part 'services/storage_initializer.dart';
+part 'services/app_logger.dart';
+part 'services/storage_failure.dart';
 part 'data/question_data.dart';
-part 'utils/name_utils.dart';
-part 'utils/text_utils.dart';
 part 'pages/home_page.dart';
 part 'pages/completion_history_page.dart';
 part 'pages/usage_guide_page.dart';
@@ -39,6 +62,11 @@ part 'widgets/progress_card.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeStorage();
-  runApp(const MyApp());
+  try {
+    await initializeStorage();
+    runApp(const MyApp());
+  } catch (_) {
+    AppLogger.error(AppLogEvent.storageReadFailed);
+    runApp(const MaterialApp(home: StorageStartupPage()));
+  }
 }
