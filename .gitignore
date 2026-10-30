@@ -69,3 +69,4 @@ key.properties
 *.tmp
 *.temp
 /test-results/
+/.mobile-stage/
