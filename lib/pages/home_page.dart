@@ -129,9 +129,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> openHistory() async {
     await Navigator.push(
       context,
-      MaterialPageRoute<void>(
-        builder: (_) => const CompletionHistoryPage(),
-      ),
+      MaterialPageRoute<void>(builder: (_) => const CompletionHistoryPage()),
     );
     if (mounted) await loadProgress();
   }
@@ -200,6 +198,15 @@ class _HomePageState extends State<HomePage> {
         title: const Text('너랑나랑'),
         backgroundColor: Colors.deepPurple.shade200,
         actions: [
+          if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+            IconButton(
+              tooltip: '합성 자료 연동 시험',
+              icon: const Icon(Icons.cloud_outlined),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(builder: (_) => const MobilePocPage()),
+              ),
+            ),
           if (!isLoadingProgress && !hasStorageError && recoveryCount > 0)
             IconButton(
               tooltip: '저장되지 않은 기록 $recoveryCount개',
