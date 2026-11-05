@@ -1,7 +1,14 @@
 part of '../main.dart';
 
 class ParticipantSetupPage extends StatefulWidget {
-  const ParticipantSetupPage({super.key});
+  const ParticipantSetupPage({
+    super.key,
+    this.initialMode = ParticipationMode.solo,
+    this.quickTogether = false,
+  });
+
+  final ParticipationMode initialMode;
+  final bool quickTogether;
 
   @override
   State<ParticipantSetupPage> createState() => _ParticipantSetupPageState();
@@ -18,6 +25,9 @@ class _ParticipantSetupPageState extends State<ParticipantSetupPage> {
   @override
   void initState() {
     super.initState();
+    selectedMode = widget.quickTogether
+        ? ParticipationMode.together
+        : widget.initialMode;
     loadPreferences();
   }
 
@@ -96,6 +106,17 @@ class _ParticipantSetupPageState extends State<ParticipantSetupPage> {
 
     setState(() => saving = true);
     try {
+      if (widget.quickTogether) {
+        final question = await questionDraftRepository.load();
+        final grace = await graceDraftRepository.load();
+        if (!mounted) {
+          return;
+        }
+        if (question != null || grace != null) {
+          showMessage('진행 중인 기록을 먼저 이어서 마무리해 주세요.');
+          return;
+        }
+      }
       final value = await preferencesRepository.remember(
         myName,
         selectedMode == ParticipationMode.together ? partnerName : null,
@@ -139,19 +160,72 @@ class _ParticipantSetupPageState extends State<ParticipantSetupPage> {
     );
   }
 
+  Widget buildTogetherBody() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            key: const ValueKey('together-partner-name'),
+            controller: partnerNameController,
+            enabled: !saving,
+            decoration: const InputDecoration(
+              labelText: '함께할 분 이름',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.person_add_outlined),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text('내 이름: ${myNameController.text}'),
+          if (recentPartners.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            const Text('최근 함께한 분',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            for (final name in recentPartners)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(name),
+                trailing: const Icon(Icons.north_west),
+                enabled: !saving,
+                onTap: () {
+                  partnerNameController.text = name;
+                  FocusScope.of(context).unfocus();
+                },
+              ),
+          ],
+          const SizedBox(height: 24),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: partnerNameController,
+            builder: (context, value, child) => ElevatedButton.icon(
+              onPressed: saving || value.text.trim().isEmpty ||
+                      myNameController.text.trim().isEmpty
+                  ? null
+                  : continueToCourses,
+              icon: const Icon(Icons.arrow_forward),
+              label: Text(saving ? '처리 중…' : '함께 시작'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isTogether = selectedMode == ParticipationMode.together;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('참여자 설정'),
+        title: Text(widget.quickTogether ? '누구와 함께할까요?' : '참여자 설정'),
         backgroundColor: Colors.deepPurple.shade200,
       ),
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : loadFailed
           ? StorageFailureView(onRetry: loadPreferences)
+          : widget.quickTogether
+          ? buildTogetherBody()
           : SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(
