@@ -17,11 +17,164 @@ class _HomePageState extends State<HomePage> {
   bool hasStorageError = false;
   int loadGeneration = 0;
   int recoveryCount = 0;
+  final participantPreferences = ParticipantPreferencesRepository();
+  ParticipantPreferences quickParticipants = const ParticipantPreferences();
+  bool participantsLoading = true;
+  bool participantsFailed = false;
+  bool quickStarting = false;
 
   @override
   void initState() {
     super.initState();
     loadProgress();
+    loadParticipants();
+  }
+
+  Future<void> loadParticipants() async {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      participantsLoading = true;
+      participantsFailed = false;
+    });
+    try {
+      final value = await participantPreferences.load();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        quickParticipants = value;
+        participantsLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        participantsLoading = false;
+        participantsFailed = true;
+        quickParticipants = const ParticipantPreferences();
+      });
+    }
+  }
+
+  Future<void> quickStart({required bool together}) async {
+    if (quickStarting || participantsLoading || participantsFailed ||
+        isLoadingProgress || hasStorageError || questionDraft != null ||
+        graceDraft != null) {
+      return;
+    }
+    setState(() => quickStarting = true);
+    try {
+      // Re-read names and drafts: the visible home may be older than storage.
+      final people = await participantPreferences.load();
+      if (!mounted || people.myName.trim().isEmpty) {
+        return;
+      }
+      final pendingQuestion = await questionDraftRepository.load();
+      final pendingGrace = await graceDraftRepository.load();
+      if (!mounted) {
+        return;
+      }
+      if (pendingQuestion != null || pendingGrace != null) {
+        await loadProgress();
+        if (!mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('진행 중인 기록을 먼저 이어서 마무리해 주세요.')),
+        );
+        return;
+      }
+      if (together) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => const ParticipantSetupPage(
+              initialMode: ParticipationMode.together,
+              quickTogether: true,
+            ),
+          ),
+        );
+        return;
+      }
+      await participantPreferences.remember(
+        people.myName, null,
+      );
+      if (!mounted) {
+        return;
+      }
+      await Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => CourseSelectionPage(
+            participationMode: ParticipationMode.solo,
+            myName: people.myName,
+            myHonorific: '',
+            partnerName: '',
+            partnerHonorific: '',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('빠른 시작을 준비하지 못했습니다. 기존 기록은 유지됩니다. 다시 시도해 주세요.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => quickStarting = false);
+        await loadParticipants();
+        if (mounted) {
+          await loadProgress();
+        }
+      }
+    }
+  }
+
+  Widget buildQuickStart() {
+    if (participantsLoading) {
+      return const SizedBox.shrink();
+    }
+    if (participantsFailed) {
+      return Column(
+        children: [
+          const Text('빠른 시작에 사용할 이름을 불러오지 못했습니다.'),
+          TextButton(onPressed: loadParticipants, child: const Text('이름 다시 불러오기')),
+        ],
+      );
+    }
+    if (quickParticipants.myName.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Card(
+      key: const ValueKey('home-quick-start'),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('빠른 시작', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('내 이름: ${quickParticipants.myName}'),
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: quickStarting ? null : () => quickStart(together: false),
+              icon: const Icon(Icons.person),
+              label: const Text('혼자 하기'),
+            ),
+            OutlinedButton.icon(
+              onPressed: quickStarting ? null : () => quickStart(together: true),
+              icon: const Icon(Icons.people),
+              label: const Text('함께 하기'),
+            ),
+            const Text('이름 변경은 아래 문답 시작하기에서'),
+            if (quickStarting) const LinearProgressIndicator(),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> loadProgress() async {
@@ -139,6 +292,7 @@ class _HomePageState extends State<HomePage> {
       context,
       MaterialPageRoute(builder: (context) => const UsageGuidePage()),
     );
+    if (mounted) await loadParticipants();
     if (mounted) await loadProgress();
   }
 
@@ -321,12 +475,15 @@ class _HomePageState extends State<HomePage> {
                   onRestart: discardDraft,
                 ),
               ],
+              if (!isLoadingProgress && !hasStorageError &&
+                  questionDraft == null && graceDraft == null)
+                buildQuickStart(),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed:
-                      isLoadingProgress || hasStorageError || graceDraft != null
+                      isLoadingProgress || hasStorageError || graceDraft != null || quickStarting
                       ? null
                       : openQuestions,
                   icon: const Icon(Icons.arrow_forward),
