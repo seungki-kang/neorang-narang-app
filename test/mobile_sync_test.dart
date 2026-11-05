@@ -171,6 +171,34 @@ class WidgetMobileSync extends MobileSync {
   }
 }
 
+class ConsentWidgetSync extends WidgetMobileSync {
+  final initialized = Completer<void>();
+  int grantCalls = 0;
+  int selectCalls = 0;
+  int revokeCalls = 0;
+
+  @override
+  Future<void> refreshStatus() async {
+    await super.refreshStatus();
+    if (!initialized.isCompleted) initialized.complete();
+  }
+
+  @override
+  Future<void> grant() async {
+    grantCalls++;
+  }
+
+  @override
+  Future<void> selectSynthetic(int course) async {
+    selectCalls++;
+  }
+
+  @override
+  Future<void> revoke() async {
+    revokeCalls++;
+  }
+}
+
 Future<void> login(MobileSync sync) async {
   await sync.beginLogin();
   await sync.finishLogin(
@@ -227,6 +255,97 @@ void main() {
     expect(observed.refreshCalls, 1);
     expect(observed.sendCalls, 1);
     expect(observed.resumeCalls, 2);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('local consent checkbox gates callbacks without revoking consent', (
+    tester,
+  ) async {
+    final observed = ConsentWidgetSync();
+    const channel = MethodChannel('jesuslife/mobile_browser');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      channel,
+      (_) async => null,
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      );
+      observed.dispose();
+    });
+    await tester.pumpWidget(
+      MaterialApp(home: MobilePocPage(session: observed)),
+    );
+    await tester.pumpAndSettle();
+    expect(observed.initialized.isCompleted, isTrue);
+    expect(observed.loggedIn, isTrue);
+    expect(observed.consentActive, isTrue);
+    expect(observed.refreshCalls, 1);
+    expect(observed.resumeCalls, 1);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+
+    final checkbox = find.byType(CheckboxListTile);
+    final grant = find.widgetWithText(OutlinedButton, '별도 동의 저장');
+    final select = find.widgetWithText(OutlinedButton, '이 합성 완료 1건 선택');
+    final send = find.widgetWithText(FilledButton, '선택한 1건 수동 전송 / 재시도');
+    final buttons = [grant, select, send];
+
+    List<int> callbackCounts() => [
+      observed.grantCalls,
+      observed.selectCalls,
+      observed.sendCalls,
+    ];
+
+    Future<void> expectBlockedActions() async {
+      final before = callbackCounts();
+      for (final button in buttons) {
+        await tester.ensureVisible(button);
+        expect(tester.widget<ButtonStyleButton>(button).onPressed, isNull);
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+      }
+      expect(callbackCounts(), before);
+      expect(observed.revokeCalls, 0);
+      expect(observed.consentActive, isTrue);
+    }
+
+    expect(tester.widget<CheckboxListTile>(checkbox).value, isFalse);
+    expect(callbackCounts(), [0, 0, 0]);
+    await expectBlockedActions();
+
+    await tester.ensureVisible(checkbox);
+    await tester.tap(checkbox);
+    await tester.pumpAndSettle();
+    expect(tester.widget<CheckboxListTile>(checkbox).value, isTrue);
+    for (final button in buttons) {
+      await tester.ensureVisible(button);
+      expect(tester.widget<ButtonStyleButton>(button).onPressed, isNotNull);
+    }
+    await tester.ensureVisible(grant);
+    await tester.tap(grant);
+    await tester.pumpAndSettle();
+    expect(callbackCounts(), [1, 0, 0]);
+    await tester.ensureVisible(select);
+    await tester.tap(select);
+    await tester.pumpAndSettle();
+    expect(callbackCounts(), [1, 1, 0]);
+    await tester.ensureVisible(send);
+    await tester.tap(send);
+    await tester.pumpAndSettle();
+    expect(callbackCounts(), [1, 1, 1]);
+
+    await tester.ensureVisible(checkbox);
+    await tester.tap(checkbox);
+    await tester.pumpAndSettle();
+    expect(tester.widget<CheckboxListTile>(checkbox).value, isFalse);
+    expect(observed.consentActive, isTrue);
+    await expectBlockedActions();
+    expect(callbackCounts(), [1, 1, 1]);
+    expect(observed.refreshCalls, 1);
+    expect(observed.resumeCalls, 1);
+    expect(observed.revokeCalls, 0);
     expect(tester.takeException(), isNull);
   });
 

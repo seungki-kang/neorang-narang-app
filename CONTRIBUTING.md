@@ -37,16 +37,24 @@ git switch -c feature/archive-search
 
 승인된 교재 문구·신학 표현·학습 표시와 wakelock 동작을 보존합니다. 생명일기 7문항이나 CHGO 서버 기능을 이 앱에 필수로 추가하지 않습니다. 저장 변경은 기존 기록·임시저장·migration 호환성을 검토합니다. 민감한 이름·원문·토큰은 로그나 PR에 넣지 않습니다.
 
-기존 도구를 사용해 CI와 같은 검사를 수행합니다.
+### 검증 경로
 
-```powershell
-./tool/Invoke-NN-CI.ps1 -Mode Tests
-./tool/Invoke-NN-CI.ps1 -Mode Apk
-```
+저장소 루트에서 작업 목적에 맞는 경로를 선택합니다. 동일 소스에서 Safe Standard, CI Tests, 구형 Operations Standard를 연속 실행하도록 요구하지 않습니다. Standard/CI Tests 내부의 seed 22022 재실행은 순서 의존성 탐지 목적이므로 유지합니다. 변경된 소스·범위나 새 실패가 있을 때 필요한 검사를 다시 선택합니다.
 
-Tests는 lockfile 준수 의존성 설치, 분석, 전체 테스트·coverage 및 seed 22022 순서 변경 테스트를 실행합니다. Apk는 설치 없이 Android debug APK를 빌드합니다. 실행하지 못한 검사는 NOT_RUN으로 적고, 변경과 검증을 docs/reviews/에 남깁니다. 문서만 수정했다면 변경 내용·링크를 확인하고 기능 테스트 재실행 여부를 명시합니다.
+| 목적·경로 | 명령 | 의존성·환경 준비 | 검증 범위와 한계 |
+| --- | --- | --- | --- |
+| 단독 회귀 검사 | 예: `flutter test test/mobile_sync_test.dart --no-pub --reporter expanded --timeout 60s` | SDK/cache 실행 권한, 현재 lock에 맞는 package_config 및 테스트별 네이티브 라이브러리 필요. 자동 pub get 없음 | 지정 파일만 검사. 이 예는 합성 요청·임시 SQLite FFI를 사용하며 실제 서버·운영 계정·앱 프로세스 재시작 검사가 아님 |
+| Safe Quick / Standard | `./tool/Test-NN-Safe.ps1 -Mode Quick` 또는 `-Mode Standard` | Windows PowerShell 5.1 이상, PATH의 flutter, 기존 의존성 준비. 두 모드 모두 --no-pub이며 자동 pub get 없음 | Quick은 분석+전체 host 1회. Standard는 coverage+seed 재실행 추가. 소스 해시·동시 실행·단계 제한 확인. 기기 검사는 별도 |
+| CI 재현 Tests | `./tool/Invoke-NN-CI.ps1 -Mode Tests` | lockfile과 PATH의 flutter, 의존성 다운로드 환경. CI SDK는 workflow 기준 | version → pub get --enforce-lockfile → 분석 → 전체 test/coverage → seed 재실행. Safe/단독 --no-pub 성공은 이 준비 단계까지 포함한 CI 재현 성공이 아님 |
+| CI 재현 Apk | `./tool/Invoke-NN-CI.ps1 -Mode Apk` | 공통 version/pub get --enforce-lockfile 준비와 Android SDK·JDK 필요 | 기기에 설치하지 않고 debug APK를 빌드하며 의존성 준비는 수행. 설치·실기기 동작·release 서명 검사 아님 |
+| Device SQLite | `./tool/Test-NN-Safe.ps1 -Mode Device` | 전용 NN_Test_Only 에뮬레이터, 일반 앱 미설치, ADB/aapt/Android 빌드 환경. 새 사본에서 pub get --enforce-lockfile 수행 | 별도 앱 ID/APK 확인 후 integration SQLite 검사. host 전체를 반복하지 않음. 일반 앱에서 직접 실행하지 않으며 UI 전체·OS 종료·과거 schema upgrade를 보장하지 않음 |
+| Lifecycle | `./tool/Test-NN-Lifecycle.ps1` | 전용 NN_Test_Only 및 일반 앱 미설치, ADB/aapt/빌드 환경. 새 사본에서 pub get --enforce-lockfile 수행 | 고유 테스트 ID의 진단 앱, 저장 완료 후 force-stop/새 프로세스와 같은 소스 APK A/B 덮어 설치. 일반 UI E2E·저장 중 종료·실제 과거 release migration·release 서명은 별도 |
 
-실제 모바일 SQLite·OS 강제 종료·재시작·release 서명·실기기 동작은 위 CI만으로 검증됐다고 표현하지 않습니다.
+의존성이 없거나 변경됐다면 lock을 임의 갱신하지 말고 `flutter pub get --enforce-lockfile`로 준비 가능한지 별도로 확인합니다. --no-pub 경로 통과는 의존성 재해결이나 lock 준수 검사의 대체가 아닙니다. 기기 경로는 각 실행기의 안전 확인을 우회하지 않습니다. 세부 보호·범위는 [Safe 운영](docs/reviews/2026-10-22-safe-test-operations.md), [Lifecycle](docs/reviews/2026-10-22-lifecycle-test.md)을 확인합니다.
+
+구형 `tool/Test-NN-Operations.ps1`은 보존 중이며 **Full 모드는 실행 시작 시 차단**됩니다. 과거 문서의 Full 설명으로 차단을 우회하지 않습니다. Standard는 위 host 검사와 중복되므로 새 기본 경로로 선택하지 않습니다. 삭제는 외부 호출·사용자 실행 경로와 대체 경로의 동등성을 별도 확인한 뒤 결정합니다.
+
+실행하지 못한 검사는 NOT_RUN으로 적고, 변경과 검증을 docs/reviews/ 또는 사용자 지정 경로에 남깁니다. 문서만 수정했다면 변경 내용·참조·diff를 확인하고 기능 테스트를 반복하지 않은 이유를 기록합니다. 위 CI만으로 실제 모바일 SQLite·OS 강제 종료·재시작·release 서명·실기기 동작을 검증했다고 표현하지 않습니다.
 
 ## 커밋과 PR
 
