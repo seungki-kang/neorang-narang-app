@@ -11,15 +11,39 @@ class CompletionHistoryPage extends StatefulWidget {
 class _CompletionHistoryPageState extends State<CompletionHistoryPage> {
   List<CompletionRecord> records = [];
   int selectedCourse = 0;
+  final searchController = TextEditingController();
+  String searchQuery = '';
+
+  String normalizeSearch(String value) =>
+      value.toLowerCase().replaceAll(RegExp(r'[-/]'), '.');
   bool isLoading = true;
   bool hasStorageError = false;
   int pendingCount = 0;
 
   List<CompletionRecord> get filteredRecords {
-    if (selectedCourse == 0) return records;
-    return records
-        .where((record) => record.courseNumber == selectedCourse)
+    final terms = normalizeSearch(searchQuery.trim())
+        .split(RegExp(r'\s+'))
+        .where((term) => term.isNotEmpty)
         .toList();
+    return records.where((record) {
+      if (selectedCourse != 0 && record.courseNumber != selectedCourse) {
+        return false;
+      }
+      final searchable = normalizeSearch([
+        record.myName,
+        record.partnerName,
+        record.courseTitle,
+        record.graceReflection,
+        formatSignedAt(record.completedAt),
+      ].join(' '));
+      return terms.every(searchable.contains);
+    }).toList();
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -147,6 +171,28 @@ class _CompletionHistoryPageState extends State<CompletionHistoryPage> {
                     ),
                   ),
                   const SizedBox(height: 14),
+                  TextField(
+                    key: const ValueKey('history-search'),
+                    controller: searchController,
+                    onChanged: (value) => setState(() => searchQuery = value),
+                    decoration: InputDecoration(
+                      labelText: '기록 검색',
+                      hintText: '이름 · 은혜 내용 · 날짜(2026.11.05)',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: searchQuery.isEmpty
+                          ? null
+                          : IconButton(
+                              tooltip: '검색어 지우기',
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                searchController.clear();
+                                setState(() => searchQuery = '');
+                              },
+                            ),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   SegmentedButton<int>(
                     segments: const [
                       ButtonSegment(value: 0, label: Text('전체')),
@@ -158,6 +204,8 @@ class _CompletionHistoryPageState extends State<CompletionHistoryPage> {
                       setState(() => selectedCourse = values.first);
                     },
                   ),
+                  if (!isLoading)
+                    Text('현재 조건에 맞는 기록 ${visibleRecords.length}개'),
                 ],
               ),
             ),
@@ -165,7 +213,17 @@ class _CompletionHistoryPageState extends State<CompletionHistoryPage> {
               child: isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : visibleRecords.isEmpty
-                  ? const _EmptyHistoryView()
+                  ? records.isEmpty
+                        ? const _EmptyHistoryView()
+                        : const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Text(
+                                '조건에 맞는 기록이 없습니다.\n검색어나 장 선택을 변경해 주세요.',
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          )
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
                       itemCount: visibleRecords.length,
