@@ -1,6 +1,8 @@
 # 너랑나랑 강제 종료·업데이트 보존 검증 1.0
 기준일 2026-10-22. 원본 lib/DB/교재/기존 테스트/기존 실행기 미수정. 설치는 tool에 진단용 Dart 엔트리와 실행기, docs/reviews에 이 문서를 추가한다. 기존 같은 파일은 Downloads/NN-Lifecycle-Backup-시간에 백업한다.
 
+현재 경로 선택·의존성 준비와 다른 검사와의 구분은 [CONTRIBUTING의 검증 경로](../../CONTRIBUTING.md#검증-경로)를 따른다. 아래는 이 도구의 세부 절차와 당시 검증 기록이며, 설치 절차를 다시 수행하라는 뜻은 아니다.
+
 ## 실행
 NN_Test_Only를 켠다. 원본 neorang_narang_app 프로젝트에서 새 실행기를 사용한다. 일반 Medium_Phone을 대상으로 하지 않는다.
 
