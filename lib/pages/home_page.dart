@@ -352,7 +352,10 @@ class _HomePageState extends State<HomePage> {
         title: const Text('너랑나랑'),
         backgroundColor: Colors.deepPurple.shade200,
         actions: [
-          if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+          // Synthetic sync PoC: debug builds only; never shown in store releases.
+          if (kDebugMode &&
+              !kIsWeb &&
+              defaultTargetPlatform == TargetPlatform.android)
             IconButton(
               tooltip: '합성 자료 연동 시험',
               icon: const Icon(Icons.cloud_outlined),
