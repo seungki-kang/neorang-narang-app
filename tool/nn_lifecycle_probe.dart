@@ -263,7 +263,7 @@ Future<void> main() async {
   // Refuse normal app data paths before initializeStorage opens the real DB.
   final directory = await getDatabasesPath();
   require(
-    Platform.isAndroid && RegExp(r'/com\.example\.neorang_narang_app\.lifecycle\.r[a-f0-9]+/databases$').hasMatch(directory),
+    Platform.isAndroid && RegExp(r'/com\.jesuslab\.neorangnarang\.lifecycle\.r[a-f0-9]+/databases$').hasMatch(directory),
     'test_package_path_required',
   );
   final file = File('$directory/../files/nn-lifecycle-proof.json');

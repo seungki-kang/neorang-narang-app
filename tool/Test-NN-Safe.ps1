@@ -6,7 +6,7 @@ param(
     [ValidateRange(120,3600)][int]$StepTimeoutSeconds = 600
 )
 $ErrorActionPreference = 'Stop'
-$baseId = 'com.example.neorang_narang_app'
+$baseId = 'com.jesuslab.neorangnarang'
 $testId = $baseId + '.devicetest'
 $root = (Resolve-Path -LiteralPath $ProjectRoot).Path.TrimEnd('\')
 if ((Split-Path $root -Leaf) -ne 'neorang_narang_app') { throw '일반 프로젝트 폴더에서만 실행할 수 있습니다.' }
