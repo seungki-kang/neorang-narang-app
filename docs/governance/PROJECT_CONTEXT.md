@@ -28,7 +28,7 @@ Android/iOS는 SQLite, 웹과 그 외 플랫폼은 SharedPreferences를 사용�
 위 본문은 2026-10-09 로컬 기능 기준을 보존한 것이다. 본문의 로그인·서버 API 비적용 서술은 그 기준 범위에 한정하며, 이후 추가된 아래 PoC 코드의 부재를 뜻하지 않는다. AI·결제의 적용을 확대하는 근거로도 사용하지 않는다.
 
 - 진입점: `lib/main.dart`의 mobile_page import, `lib/pages/home_page.dart`의 `MobilePocPage` 이동, `lib/mobile/mobile_page.dart`의 화면과 `MobileSync`/`mobileRequest` 연결.
-- 로그인: `lib/mobile/mobile_sync.dart`의 `beginLogin`/`finishLogin`, Android `android/app/src/main/kotlin/com/example/neorang_narang_app/MainActivity.kt`의 `jesuslife/mobile_browser` 채널과 브라우저 왕복, `android/app/src/main/AndroidManifest.xml`의 `jesuslife-poc` 반환 URI가 존재한다. 코드 존재는 실제 인증 성공이나 승인된 운영 인증 계약의 증거가 아니다.
+- 로그인: `lib/mobile/mobile_sync.dart`의 `beginLogin`/`finishLogin`, Android `android/app/src/main/kotlin/com/jesuslab/neorangnarang/MainActivity.kt`의 `jesuslife/mobile_browser` 채널과 브라우저 왕복, `android/app/src/main/AndroidManifest.xml`의 `jesuslife-poc` 반환 URI가 존재한다. 코드 존재는 실제 인증 성공이나 승인된 운영 인증 계약의 증거가 아니다.
 - 동의·송신·철회: `mobile_sync.dart`의 `refreshStatus`/`grant`/`selectSynthetic`/`send`/`revoke`/`resumeDeletion`/`logout`. 별도 `neorang_mobile_poc.db`의 큐·삭제 의도를 사용하며, `selectSynthetic`은 기존 완료 기록을 읽지 않고 `synthetic: true`인 합성 완료를 만든다. 개인 문답·은혜 원문 동기화 완료로 표현하지 않는다.
 - 통신 한계: `mobileOrigin`은 `http://127.0.0.1:8000`, API 접두사는 `/api/v1/mobile`이다. `lib/mobile/mobile_transport.dart`는 IO 구현을 조건부 선택하고, `mobile_transport_io.dart`는 HttpClient로 요청한다. 비 IO stub은 `UnsupportedError('android_only')`를 발생시킨다. 모든 플랫폼 지원이나 운영 서버 연결을 의미하지 않는다.
 - 실행 근거: `test/mobile_sync_test.dart`에 관련 테스트가 있다. 기존 `docs/reviews/2026-10-30-mobile-session-review-fixes.md`, `docs/reviews/2026-10-30-mobile-sync-widget-async.md`는 SDK 시작/권한 문제와 테스트·분석 NOT_RUN을 기록한다. 이는 과거 보고이며 이번 실행 결과가 아니다. 이번 문서 작업에서도 로그인·서버·동기화 런타임은 NOT_RUN이다.
