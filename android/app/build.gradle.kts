@@ -1,8 +1,29 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// Release signing: upload key settings live in android/key.properties, which is
+// git-ignored. Template: android/key.properties.example.
+// Guide: docs/release/android-release-signing.md
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        // UTF-8 so a Korean folder name in storeFile is read correctly.
+        keystorePropertiesFile.reader(Charsets.UTF_8).use { load(it) }
+    }
+}
+val missingReleaseSigningKeys = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+    .filter { keystoreProperties.getProperty(it).isNullOrBlank() }
+val releaseStoreFile = keystoreProperties.getProperty("storeFile")
+    ?.takeIf { it.isNotBlank() }
+    ?.let { rootProject.file(it) }
+val hasReleaseSigning = keystorePropertiesFile.exists() &&
+    missingReleaseSigningKeys.isEmpty() &&
+    releaseStoreFile?.exists() == true
 
 android {
     namespace = "com.jesuslab.neorangnarang"
@@ -29,11 +50,23 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = releaseStoreFile
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Upload key only. Without android/key.properties the release
+            // build stops (see the task graph check below) instead of using
+            // the debug key.
+            signingConfig = if (hasReleaseSigning) signingConfigs.getByName("release") else null
         }
     }
 }
@@ -46,4 +79,22 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+// Release builds must never fall back to the debug key. Stop before building
+// a release APK/AAB when android/key.properties is missing or incomplete.
+gradle.taskGraph.whenReady {
+    val buildsRelease = allTasks.any { task ->
+        task.project == project &&
+            task.name.endsWith("Release") &&
+            (task.name.startsWith("assemble") || task.name.startsWith("bundle") || task.name.startsWith("package"))
+    }
+    if (buildsRelease && !hasReleaseSigning) {
+        val reason = when {
+            !keystorePropertiesFile.exists() -> "android/key.properties 파일이 없습니다"
+            missingReleaseSigningKeys.isNotEmpty() -> "android/key.properties에 빈 항목이 있습니다: ${missingReleaseSigningKeys.joinToString()}"
+            else -> "storeFile 경로에 키 파일이 없습니다: ${keystoreProperties.getProperty("storeFile")}"
+        }
+        throw GradleException("release 서명 설정이 필요합니다. $reason. docs/release/android-release-signing.md를 참고하세요.")
+    }
 }
