@@ -4,5 +4,15 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <application android:networkSecurityConfig="@xml/mobile_poc_network"/>
+    <application android:networkSecurityConfig="@xml/mobile_poc_network">
+        <!-- Synthetic sync PoC login return URI: debug builds only, never in store releases. -->
+        <activity android:name=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="jesuslife-poc" android:host="auth" android:path="/complete/android"/>
+            </intent-filter>
+        </activity>
+    </application>
 </manifest>
