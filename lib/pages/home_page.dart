@@ -347,12 +347,14 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final commonAccountEnabled = NeorangDevLogin.enabled &&
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
     return Scaffold(
       appBar: AppBar(
         title: const Text('너랑나랑'),
         backgroundColor: Colors.deepPurple.shade200,
         actions: [
-          if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+          if (!commonAccountEnabled && !kIsWeb && defaultTargetPlatform == TargetPlatform.android)
             IconButton(
               tooltip: '합성 자료 연동 시험',
               icon: const Icon(Icons.cloud_outlined),
@@ -388,6 +390,15 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              if (commonAccountEnabled) ...[
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: common_auth.DevAuthPage(embedded: true, accountMode: true),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               SizedBox(
                 width: 120,
                 height: 120,
