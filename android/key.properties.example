@@ -1,0 +1,7 @@
+# 이 파일을 같은 폴더에 key.properties 이름으로 복사한 뒤 실제 값으로 바꿉니다.
+# key.properties는 .gitignore에 있어 Git에 올라가지 않습니다. 이 예시 파일에는 실제 값을 넣지 마세요.
+# 경로는 슬래시(/)로 적습니다. 상대 경로는 android 폴더 기준입니다. 키 파일은 저장소 밖에 두세요.
+storeFile=C:/Users/사용자이름/keys/neorangnarang-upload.jks
+storePassword=키스토어_비밀번호
+keyAlias=upload
+keyPassword=키_비밀번호

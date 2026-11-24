@@ -1,4 +1,4 @@
-package com.example.neorang_narang_app
+package com.jesuslab.neorangnarang
 
 import android.content.Intent
 import android.net.Uri

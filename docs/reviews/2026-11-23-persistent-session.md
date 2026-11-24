@@ -31,3 +31,13 @@ SQLite·기록·초안·완료·공유 동의·백업 데이터는 읽거나 쓰
 - offline/enforce-lockfile 의존성 준비 PASS.
 - 전체 analyze PASS, 인증 활성화 테스트 27 PASS.
 - Android 기기 검증은 앞서 전체 작업 트리에서 수행한 결과이며, 이 사본의 기기 빌드 검증은 별도임.
+
+## 최신 main 통합 검증 - 2026-11-24
+
+- Android 패키지 com.jesuslab.neorangnarang 변경과 공통 인증 연결을 함께 보존.
+- 기존 합성 시험 버튼의 debug 전용 제한과 공통 인증 활성화 시 숨김 조건을 함께 보존.
+- 전체 analyze PASS.
+- 전체 테스트 246 PASS, 23 SKIP.
+- 인증 활성화 테스트 27 PASS.
+- 지속 로그인 플래그를 켠 Android debug APK 빌드 PASS.
+- 통합 APK의 설치 및 새 패키지에서의 실제 로그인 검증은 아직 NOT_RUN.
