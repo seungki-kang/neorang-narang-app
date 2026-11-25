@@ -118,7 +118,7 @@ class NeorangOneApiAuthClient implements NeorangAuthClient {
         body == null ? null : jsonEncode(body),
       );
       if (response.status != status) {
-        onStage?.call('HTTP rejected (${response.status})');
+        onStage?.call('HTTP rejected ($method $path: ${response.status})');
         throw StateError('Authentication rejected');
       }
       if (status == 204) {

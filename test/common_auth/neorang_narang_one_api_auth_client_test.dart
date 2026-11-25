@@ -76,7 +76,7 @@ void main() {
       for (final status in [401, 422, 503]) {
         transport.response = (status: status, body: 'synthetic-private-body');
         await expectLater(client.start('c' * 43), throwsStateError);
-        expect(stages.removeLast(), 'HTTP rejected ($status)');
+        expect(stages.removeLast(), 'HTTP rejected (POST login-transactions: $status)');
       }
       transport.failure = TimeoutException('synthetic-private-detail');
       await expectLater(client.start('c' * 43), throwsStateError);
