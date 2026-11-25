@@ -347,13 +347,15 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final commonAccountEnabled = NeorangDevLogin.enabled &&
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
     return Scaffold(
       appBar: AppBar(
         title: const Text('너랑나랑'),
         backgroundColor: Colors.deepPurple.shade200,
         actions: [
           // Synthetic sync PoC: debug builds only; never shown in store releases.
-          if (kDebugMode &&
+          if (!commonAccountEnabled && kDebugMode &&
               !kIsWeb &&
               defaultTargetPlatform == TargetPlatform.android)
             IconButton(
@@ -391,6 +393,15 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              if (commonAccountEnabled) ...[
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: common_auth.DevAuthPage(embedded: true, accountMode: true),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               SizedBox(
                 width: 120,
                 height: 120,

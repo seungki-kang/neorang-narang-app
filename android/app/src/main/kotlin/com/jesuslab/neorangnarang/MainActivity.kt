@@ -11,6 +11,7 @@ class MainActivity : FlutterActivity() {
     private var ready = false
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        CommonSessionVault.install(this, flutterEngine)
         // Cold starts have no in-memory PKCE transaction; discard return intents.
         intent?.data = null
         channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "jesuslife/mobile_browser")
@@ -21,6 +22,23 @@ class MainActivity : FlutterActivity() {
                     val uri = (call.arguments as? String)?.let { Uri.parse(it) }
                     if (uri == null || uri.scheme != "http" || uri.host != "127.0.0.1" ||
                         uri.port != 8000 || uri.path != "/api/v1/mobile/authorize") {
+                        result.error("invalid_uri", "Unable to open login", null)
+                    } else {
+                        try {
+                            startActivity(Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE))
+                            result.success(null)
+                        } catch (_: Exception) { result.error("browser_unavailable", "Unable to open login", null) }
+                    }
+                }
+                "openCommonAuth" -> {
+                    val uri = (call.arguments as? String)?.let { Uri.parse(it) }
+                    val debug = (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+                    if (!debug || uri == null || uri.scheme != "http" || uri.host != "127.0.0.1" ||
+                        uri.port != 8000 || uri.userInfo != null || uri.fragment != null ||
+                        uri.path != "/api/v1/mobile/neorang-narang/authorize" ||
+                        uri.queryParameterNames != setOf("state") ||
+                        uri.getQueryParameters("state").size != 1 ||
+                        !Regex("^[A-Za-z0-9_-]{43}$").matches(uri.getQueryParameter("state") ?: "")) {
                         result.error("invalid_uri", "Unable to open login", null)
                     } else {
                         try {
